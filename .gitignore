@@ -11,22 +11,62 @@
 *.gch
 *.pch
 
-# Compiled Dynamic libraries
-*.so
-*.dylib
-*.dll
+# # Compiled Dynamic libraries
+# *.so
+# *.dylib
+# *.dll
 
 # Fortran module files
 *.mod
 *.smod
 
-# Compiled Static libraries
-*.lai
-*.la
-*.a
-*.lib
+# # Compiled Static libraries
+# *.lai
+# *.la
+# *.a
+# *.lib
 
 # Executables
 *.exe
 *.out
 *.app
+
+**/.vs
+**/x86
+**/x64
+**/bin
+**/obj
+**/temp
+!Libraries/dlls/x64
+!Libraries/libs/x64
+
+**/*.VC.db
+**/*.aps
+**/*.vcxproj.user
+
+**/packages
+
+/Comparison
+/GameOfLife
+
+**/.DS_Store
+**/xcshareddata
+**/xcuserdata
+**/xcdebugger
+**/*.xcuserstate
+
+**/node_modules
+
+**/DerivedData
+
+**/.*
+!**/.git*
+!**/.eslintrc.json
+!**/.prettierrc
+
+**/Debug
+**/Output
+**/*.ll
+
+Libraries/includes/glm/out/
+Projects/Cross/Configs/UserCache.json
