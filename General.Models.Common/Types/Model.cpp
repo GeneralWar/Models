@@ -5,6 +5,33 @@ namespace General
 {
 	namespace Models
 	{
+		void set_string(char** buffer, const char* name)
+		{
+			if (*buffer)
+			{
+				free(*buffer);
+			}
+			*buffer = nullptr;
+
+			if (nullptr == name)
+			{
+				return;
+			}
+
+			*buffer = (char*)malloc(strlen(name) + 1);
+			strcpy(*buffer, name);
+		}
+
+		void add_material_count(Material*** materials, int* materialCount)
+		{
+			int materialCount0 = *materialCount;
+			Material** materials0 = *materials;
+			size_t newSize = sizeof(Material*) * (++(*materialCount));
+			*materials = (Material**)malloc(newSize);
+			memset(*materials, 0, newSize);
+			memcpy(*materials, materials0, sizeof(Material*) * materialCount0);
+		}
+
 		Mesh* create_mesh()
 		{
 			Mesh* mesh = (Mesh*)malloc(sizeof(Mesh));
@@ -14,19 +41,7 @@ namespace General
 
 		void mesh_set_name(Mesh* mesh, const char* name)
 		{
-			if (mesh->name)
-			{
-				free(const_cast<char*>(mesh->name));
-			}
-			mesh->name = nullptr;
-
-			if (nullptr == name)
-			{
-				return;
-			}
-
-			mesh->name = (char*)malloc(strlen(name) + 1);
-			strcpy(const_cast<char*>(mesh->name), name);
+			set_string(const_cast<char**>(&mesh->name), name);
 		}
 
 		void mesh_set_vertex_count(Mesh* mesh, const int vertexCount)
@@ -56,6 +71,12 @@ namespace General
 			}
 			memset(mesh->indices + indexCount0, 0, sizeof(VertexIndex) * (indexCount - indexCount0));
 		}
+		
+		void mesh_add_material(Mesh* mesh, Material* material)
+		{
+			add_material_count(&mesh->materials, &mesh->materialCount);
+			mesh->materials[mesh->materialCount - 1] = material;
+		}
 
 		void destroy_mesh(Mesh* mesh)
 		{
@@ -76,6 +97,61 @@ namespace General
 			free(mesh);
 		}
 
+		Material* create_material(const char* name)
+		{
+			Material* material = (Material*)malloc(sizeof(Material));
+			memset(material, 0, sizeof(Material));
+			if (nullptr != name)
+			{
+				material->name = (char*)malloc(strlen(name) + 1);
+				strcpy(const_cast<char*>(material->name), name);
+			}
+			return material;
+		}
+		
+		void material_set_ambient(Material* material, const char* filename)
+		{
+			set_string(const_cast<char**>(&material->ambient), filename);
+		}
+		
+		void material_set_diffuse(Material* material, const char* filename)
+		{
+			set_string(const_cast<char**>(&material->diffuse), filename);
+		}
+		
+		void material_set_emissive(Material* material, const char* filename)
+		{
+			set_string(const_cast<char**>(&material->emissive), filename);
+		}
+		
+		void material_set_specular(Material* material, const char* filename)
+		{
+			set_string(const_cast<char**>(&material->specular), filename);
+		}
+
+		Material* find_material(Material** materials, const int materialCount, const char* materialName)
+		{
+			for (int i = 0; i < materialCount; ++i)
+			{
+				Material* material = materials[i];
+				if (nullptr != material && 0 == strcmp(material->name, materialName))
+				{
+					return material;
+				}
+			}
+			return nullptr;
+		}
+
+		void destroy_material(Material* material)
+		{
+			if (nullptr == material)
+			{
+				return;
+			}
+
+			free(material);
+		}
+
 		Model* create_model()
 		{
 			Model* model = (Model*)malloc(sizeof(Model));
@@ -94,11 +170,20 @@ namespace General
 			model->meshes[meshCount] = create_mesh();
 		}
 
+		void model_add_material_count(Model* model)
+		{
+			add_material_count(&model->materials, &model->materialCount);
+		}
+
 		void destroy_model(Model* model)
 		{
 			for (int i = 0; i < model->meshCount; ++i)
 			{
 				destroy_mesh(model->meshes[i]);
+			}
+			for (int i = 0; i < model->materialCount; ++i)
+			{
+				destroy_material(model->materials[i]);
 			}
 			free(model);
 		}
