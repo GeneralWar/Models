@@ -7,7 +7,7 @@ namespace General
 	{
 		struct Model;
 
-		GENERAL_API Model* load_model_fbx(const char* filename);
+		GENERAL_API const Model* load_model_fbx(const char* filename);
 	}
 }
 

@@ -19,7 +19,7 @@ namespace General
 
 				virtual bool IsValid() override;
 
-				virtual Model* Import() override;
+				virtual const Model* Import() override;
 			};
 		}
 	}

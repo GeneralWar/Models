@@ -19,7 +19,7 @@ namespace General
 
 			virtual bool IsValid() = 0;
 
-			virtual Model* Import() = 0;
+			virtual const Model* Import() = 0;
 		};
 	}
 }

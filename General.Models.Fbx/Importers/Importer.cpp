@@ -10,12 +10,17 @@ namespace General
 	{
 		namespace Fbx
 		{
+#ifndef FBX_DEFAULT_UV_SET_NAME
+#define FBX_DEFAULT_UV_SET_NAME "default"
+#endif
+
 			struct Context
 			{
 				const char* filename;
 				FbxManager* manager;
 				FbxScene* scene;
 				FbxImporter* importer;
+				FbxGeometryConverter* converter;
 				Model* model;
 			};
 
@@ -83,6 +88,7 @@ namespace General
 
 			void analyze_property_for_texture(Context* context, Material* material, const FbxProperty& property)
 			{
+				const char* propertyName = property.GetNameAsCStr();
 				if (!property.IsValid())
 				{
 					return;
@@ -96,17 +102,17 @@ namespace General
 					return;
 				}
 
-				auto type = property.GetPropertyDataType();
-				const char* filename = analyze_texture(context, material, property.GetSrcObject<FbxTexture>());
+				FbxTexture* fbxTexture = property.GetSrcObject<FbxTexture>();
+				const char* filename = analyze_texture(context, material, fbxTexture);
 				if (nullptr == filename || 0 == strlen(filename))
 				{
 					return;
 				}
 
-				const char* propertyName = property.GetNameAsCStr();
 				if (0 == strcmp("DiffuseTexture", propertyName))
 				{
-					material_set_diffuse(material, filename);
+					material_set_diffuse(material, filename, fbxTexture->UVSet.Get());
+					material->diffuse->useDefaultUVSet = 0 == strcmp(material->diffuse->uvSet, FBX_DEFAULT_UV_SET_NAME);
 					return;
 				}
 
@@ -156,17 +162,20 @@ namespace General
 						FbxFileTexture* ambient = lambert->Ambient.GetSrcObject<FbxFileTexture>();
 						if (nullptr != ambient)
 						{
-							material_set_ambient(material, ambient->GetFileName());
+							material_set_ambient(material, ambient->GetFileName(), ambient->UVSet.Get());
+							material->ambient->useDefaultUVSet = 0 == strcmp(material->ambient->uvSet, FBX_DEFAULT_UV_SET_NAME);
 						}
 						FbxFileTexture* diffuse = lambert->Diffuse.GetSrcObject<FbxFileTexture>();
 						if (nullptr != diffuse)
 						{
-							material_set_diffuse(material, diffuse->GetFileName());
+							material_set_diffuse(material, diffuse->GetFileName(), diffuse->UVSet.Get());
+							material->diffuse->useDefaultUVSet = 0 == strcmp(material->diffuse->uvSet, FBX_DEFAULT_UV_SET_NAME);
 						}
 						FbxFileTexture* emissive = lambert->Emissive.GetSrcObject<FbxFileTexture>();
 						if (nullptr != emissive)
 						{
-							material_set_emissive(material, emissive->GetFileName());
+							material_set_emissive(material, emissive->GetFileName(), emissive->UVSet.Get());
+							material->emissive->useDefaultUVSet = 0 == strcmp(material->emissive->uvSet, FBX_DEFAULT_UV_SET_NAME);
 						}
 
 						FbxSurfacePhong* phong = FbxCast<FbxSurfacePhong>(fbxMaterial);
@@ -175,7 +184,8 @@ namespace General
 							FbxFileTexture* specular = phong->Specular.GetSrcObject<FbxFileTexture>();
 							if (nullptr != specular)
 							{
-								material_set_specular(material, specular->GetFileName());
+								material_set_specular(material, specular->GetFileName(), specular->UVSet.Get());
+								material->specular->useDefaultUVSet = 0 == strcmp(material->specular->uvSet, FBX_DEFAULT_UV_SET_NAME);
 							}
 						}
 					}
@@ -191,16 +201,13 @@ namespace General
 				}
 
 				Model* model = context->model;
-				model_add_mesh_count(model);
-
-				Mesh* mesh = model->meshes[model->meshCount - 1];
 				const char* meshName = fbxMesh->GetName();
 				if (nullptr == meshName || 0 == strlen(meshName))
 				{
 					meshName = fbxMesh->GetNode()->GetName();
 				}
-				mesh_set_name(mesh, meshName);
 
+				Mesh* mesh = create_mesh(meshName);
 #pragma region Vertex
 				int vertexCount = fbxMesh->GetControlPointsCount();
 				mesh_set_vertex_count(mesh, vertexCount);
@@ -248,7 +255,8 @@ namespace General
 #pragma region UV
 				FbxStringList uvSetNameList;
 				fbxMesh->GetUVSetNames(uvSetNameList);
-				for (int i = 0; i < uvSetNameList.GetCount(); ++i)
+				int uvSetCount = uvSetNameList.GetCount();
+				for (int i = 0; i < uvSetCount; ++i)
 				{
 					const char* uvSetName = uvSetNameList.GetStringAt(i);
 					const FbxGeometryElementUV* elementUV= fbxMesh->GetElementUV(uvSetName);
@@ -264,6 +272,10 @@ namespace General
 						continue;
 					}
 
+					UVSet* uvSet = create_uv_set(uvSetName);
+					uv_set_set_uv_count(uvSet, indexCount);
+					mesh_add_uv_set(mesh, uvSet);
+
 					const FbxLayerElementArrayTemplate<int>& indexArray = elementUV->GetIndexArray(); 
 					const FbxLayerElementArrayTemplate<FbxVector2>& directArray = elementUV->GetDirectArray();
 					//index array, where holds the index referenced to the uv data
@@ -274,12 +286,13 @@ namespace General
 					const int polygonCount = fbxMesh->GetPolygonCount();
 					if (FbxGeometryElement::eByControlPoint == mappingMode)
 					{
+						UV* uv = uvSet->uvArray;
 						Tracer::Warn("TODO: ensure this condition");
 						for (int polygonIndex = 0; polygonIndex < polygonCount; ++polygonIndex)
 						{
 							// build the max index array that we need to pass into MakePoly
 							const int polygonSize = fbxMesh->GetPolygonSize(polygonIndex);
-							for (int vertexIndex = 0; vertexIndex < polygonSize; ++vertexIndex)
+							for (int vertexIndex = 0; vertexIndex < polygonSize; ++vertexIndex, ++uv)
 							{
 								//get the index of the current vertex in control points array
 								int polygonVertexIndex = fbxMesh->GetPolygonVertex(polygonIndex, vertexIndex);
@@ -287,10 +300,10 @@ namespace General
 								int uvIndex = useIndex ? indexArray.GetAt(polygonVertexIndex) : polygonVertexIndex;
 								if (uvIndex < mesh->vertexCount)
 								{
-									Vertex* vertex = mesh->vertices + uvIndex;
 									FbxVector2 uvValue = directArray.GetAt(uvIndex);
-									vertex->uv0[0] = static_cast<float>(uvValue.mData[0]);
-									vertex->uv0[1] = static_cast<float>(uvValue.mData[1]);
+									uv->vertexIndex = *(&mesh->indices[polygonIndex].index0 + vertexIndex);
+									uv->value[0] = static_cast<float>(uvValue.mData[0]);
+									uv->value[1] = static_cast<float>(uvValue.mData[1]);
 								}
 							}
 						}
@@ -313,10 +326,11 @@ namespace General
 									int index = vertexIndices[vertexStartIndex + vertexIndex];
 									if (index < mesh->vertexCount)
 									{
-										Vertex* vertex = mesh->vertices + index;
+										UV* uv = uvSet->uvArray + polygonIndexCounter;
 										FbxVector2 uvValue = directArray.GetAt(uvIndex);
-										vertex->uv0[0] = static_cast<float>(uvValue.mData[0]);
-										vertex->uv0[1] = static_cast<float>(uvValue.mData[1]);
+										uv->vertexIndex = *(&mesh->indices[polygonIndex].index0 + vertexIndex);
+										uv->value[0] = static_cast<float>(uvValue.mData[0]);
+										uv->value[1] = static_cast<float>(uvValue.mData[1]);
 									}
 									polygonIndexCounter++;
 								}
@@ -329,18 +343,20 @@ namespace General
 				return mesh;
 			}
 
-			void analyze_node(Context* context, FbxNode* node)
+			void analyze_node(Context* context, Node* node, FbxNode* fbxNode)
 			{
-				FbxMesh* fbxMesh = node->GetMesh();
+				node->visible = fbxNode->GetVisibility();
+
+				FbxMesh* fbxMesh = fbxNode->GetMesh();
 				if (nullptr != fbxMesh)
 				{
-					Mesh* mesh = analyze_mesh(context, fbxMesh);
+					Mesh* mesh = node->mesh = analyze_mesh(context, fbxMesh);
 					assert(mesh);
 
-					int materialCount = node->GetMaterialCount();
+					int materialCount = fbxNode->GetMaterialCount();
 					for (int i = 0; i < materialCount; ++i)
 					{
-						FbxSurfaceMaterial* fbxMaterial = node->GetMaterial(i);
+						FbxSurfaceMaterial* fbxMaterial = fbxNode->GetMaterial(i);
 						Material* material = analyze_material(context, fbxMaterial);
 						if (nullptr != material)
 						{
@@ -349,10 +365,12 @@ namespace General
 					}
 				}
 
-				int childCount = node->GetChildCount();
+				int childCount = fbxNode->GetChildCount();
+				node_set_child_count(node, childCount);
 				for (int i = 0; i < childCount; ++i)
 				{
-					analyze_node(context, node->GetChild(i));
+					FbxNode* fbxChildNode = fbxNode->GetChild(i);
+					analyze_node(context, node->children[i] = create_node(fbxChildNode->GetName()), fbxChildNode);
 				}
 			}
 
@@ -375,8 +393,10 @@ namespace General
 					}
 				}
 				
-				FbxGeometryConverter clsConverter(context->manager);
-				clsConverter.Triangulate(scene, true);
+				FbxGeometryConverter converter(context->manager);
+				converter.Triangulate(scene, true);
+
+				context->converter = &converter;
 
 				FbxNode* root = scene->GetRootNode();
 				if (nullptr == root)
@@ -385,7 +405,9 @@ namespace General
 					return;
 				}
 
-				analyze_node(context, root);
+				analyze_node(context, model->root = create_node(root->GetName()), root);
+
+				context->converter = nullptr;
 			}
 
 			ModelImporter::ModelImporter(const char* filename) : Importer(filename), mContext((Context*)malloc(sizeof(Context)))
@@ -424,7 +446,7 @@ namespace General
 				return check_status(mContext);
 			}
 
-			Model* ModelImporter::Import()
+			const Model* ModelImporter::Import()
 			{
 				if (!this->IsValid())
 				{
