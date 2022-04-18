@@ -193,22 +193,9 @@ namespace General
 				return material;
 			}
 
-			Mesh* analyze_mesh(Context* context, const FbxMesh* fbxMesh)
+			/// <returns>vertex count</returns>
+			int analyze_mesh_vertices(Context* context, const FbxMesh* fbxMesh, Mesh* mesh)
 			{
-				if (nullptr == fbxMesh)
-				{
-					return nullptr;
-				}
-
-				Model* model = context->model;
-				const char* meshName = fbxMesh->GetName();
-				if (nullptr == meshName || 0 == strlen(meshName))
-				{
-					meshName = fbxMesh->GetNode()->GetName();
-				}
-
-				Mesh* mesh = create_mesh(meshName);
-#pragma region Vertex
 				int vertexCount = fbxMesh->GetControlPointsCount();
 				mesh_set_vertex_count(mesh, vertexCount);
 
@@ -221,9 +208,12 @@ namespace General
 					vertex->position[1] = static_cast<float>(point->mData[1]);
 					vertex->position[2] = static_cast<float>(point->mData[2]);
 				}
-#pragma endregion
+				return vertexCount;
+			}
 
-#pragma region Index
+			/// <returns>index count</returns>
+			int analyze_mesh_indices(Context* context, const FbxMesh* fbxMesh, Mesh* mesh)
+			{
 				int indexCount = 0;
 				int polygonCount = fbxMesh->GetPolygonCount();
 				for (int polygonIndex = 0; polygonIndex < polygonCount; ++polygonIndex)
@@ -235,7 +225,10 @@ namespace General
 					indexCount += polygonSize;
 				}
 
+				FbxVector4 fbxNormal;
+				Normal* normal = nullptr;
 				mesh_set_index_count(mesh, indexCount);
+				mesh_set_normal_count(mesh, indexCount);
 				for (int polygonIndex = 0, i = 0; polygonIndex < polygonCount; ++polygonIndex, ++i)
 				{
 					VertexIndex* triangle = mesh->indices + i;
@@ -244,22 +237,34 @@ namespace General
 					if (startIndex > -1)
 					{
 						memcpy(&triangle->index0, fbxMesh->GetPolygonVertices() + startIndex, sizeof(int) * polygonSize);
+						for (int i = 0, n = startIndex; i < polygonSize; ++i, ++n)
+						{
+							if (fbxMesh->GetPolygonVertexNormal(polygonIndex, i, fbxNormal))
+							{
+								normal = mesh->normals + n;
+								normal->value[0] = static_cast<float>(fbxNormal.mData[0]);
+								normal->value[1] = static_cast<float>(fbxNormal.mData[1]);
+								normal->value[2] = static_cast<float>(fbxNormal.mData[2]);
+							}
+						}
 					}
 					else
 					{
 						DebugBreak();
 					}
 				}
-#pragma endregion
+				return indexCount;
+			}
 
-#pragma region UV
+			void analyze_mesh_uvs(Context* context, const FbxMesh* fbxMesh, Mesh* mesh)
+			{
 				FbxStringList uvSetNameList;
 				fbxMesh->GetUVSetNames(uvSetNameList);
 				int uvSetCount = uvSetNameList.GetCount();
 				for (int i = 0; i < uvSetCount; ++i)
 				{
 					const char* uvSetName = uvSetNameList.GetStringAt(i);
-					const FbxGeometryElementUV* elementUV= fbxMesh->GetElementUV(uvSetName);
+					const FbxGeometryElementUV* elementUV = fbxMesh->GetElementUV(uvSetName);
 					if (!elementUV)
 					{
 						continue;
@@ -273,14 +278,14 @@ namespace General
 					}
 
 					UVSet* uvSet = create_uv_set(uvSetName);
-					uv_set_set_uv_count(uvSet, indexCount);
+					uv_set_set_uv_count(uvSet, mesh->indexCount);
 					mesh_add_uv_set(mesh, uvSet);
 
-					const FbxLayerElementArrayTemplate<int>& indexArray = elementUV->GetIndexArray(); 
+					const FbxLayerElementArrayTemplate<int>& indexArray = elementUV->GetIndexArray();
 					const FbxLayerElementArrayTemplate<FbxVector2>& directArray = elementUV->GetDirectArray();
 					//index array, where holds the index referenced to the uv data
 					const bool useIndex = elementUV->GetReferenceMode() != FbxGeometryElement::eDirect;
-					assert(!useIndex || indexCount == indexArray.GetCount());
+					assert(!useIndex || mesh->indexCount == indexArray.GetCount());
 					//const int indexCount = (useIndex) ? elementUV->GetIndexArray().GetCount() : 0;
 					//iterating through the data by polygon
 					const int polygonCount = fbxMesh->GetPolygonCount();
@@ -319,7 +324,7 @@ namespace General
 							const int vertexStartIndex = fbxMesh->GetPolygonVertexIndex(polygonIndex);
 							for (int vertexIndex = 0; vertexIndex < polygonSize; ++vertexIndex)
 							{
-								if (polygonIndexCounter < indexCount)
+								if (polygonIndexCounter < mesh->indexCount)
 								{
 									//the UV index depends on the reference mode
 									int uvIndex = useIndex ? indexArray.GetAt(polygonIndexCounter) : polygonIndexCounter;
@@ -338,8 +343,26 @@ namespace General
 						}
 					}
 				}
-#pragma endregion
+			}
 
+			Mesh* analyze_mesh(Context* context, const FbxMesh* fbxMesh)
+			{
+				if (nullptr == fbxMesh)
+				{
+					return nullptr;
+				}
+
+				Model* model = context->model;
+				const char* meshName = fbxMesh->GetName();
+				if (nullptr == meshName || 0 == strlen(meshName))
+				{
+					meshName = fbxMesh->GetNode()->GetName();
+				}
+
+				Mesh* mesh = create_mesh(meshName);
+				analyze_mesh_vertices(context, fbxMesh, mesh);
+				analyze_mesh_indices(context, fbxMesh, mesh);
+				analyze_mesh_uvs(context, fbxMesh, mesh);
 				return mesh;
 			}
 

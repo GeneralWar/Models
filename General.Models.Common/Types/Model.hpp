@@ -16,6 +16,12 @@ namespace General
 			float value[2];
 		};
 
+		struct Normal
+		{
+			int vertexIndex;
+			float value[3];
+		};
+
 		struct UVSet
 		{
 			char* name;
@@ -79,11 +85,15 @@ namespace General
 
 			int uvSetCount;
 			UVSet** uvSets;
+
+			int normalCount;
+			Normal* normals;
 		};
 
 		GENERAL_API Mesh* create_mesh(const char* name);
 		GENERAL_API void mesh_set_vertex_count(Mesh* mesh, const int vertexCount);
 		GENERAL_API void mesh_set_index_count(Mesh* mesh, const int indexCount);
+		GENERAL_API void mesh_set_normal_count(Mesh* mesh, const int indexCount);
 		GENERAL_API void mesh_add_material(Mesh* mesh, Material* material);
 		GENERAL_API void mesh_add_uv_set(Mesh* mesh, UVSet* uvSet);
 		GENERAL_API void destroy_mesh(Mesh* mesh);

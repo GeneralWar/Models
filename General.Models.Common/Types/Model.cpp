@@ -84,6 +84,11 @@ namespace General
 		{
 			g_resize_array(&mesh->indices, &mesh->indexCount, count);
 		}
+
+		void mesh_set_normal_count(Mesh* mesh, const int count)
+		{
+			g_resize_array(&mesh->normals, &mesh->normalCount, count);
+		}
 		
 		void mesh_add_material(Mesh* mesh, Material* material)
 		{
@@ -111,6 +116,10 @@ namespace General
 			if (mesh->indices)
 			{
 				free(mesh->indices);
+			}
+			if (mesh->normals)
+			{
+				free(mesh->normals);
 			}
 			// should not destroy materials because model create them
 			for (int i = 0; i < mesh->uvSetCount; ++i)
