@@ -415,7 +415,10 @@ namespace General
 						return;
 					}
 				}
-				
+
+				FbxAxisSystem system(FbxAxisSystem::EPreDefinedAxisSystem::eDirectX);
+				system.ConvertScene(scene);
+
 				FbxGeometryConverter converter(context->manager);
 				converter.Triangulate(scene, true);
 
