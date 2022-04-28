@@ -402,7 +402,7 @@ namespace General
 				FbxImporter* importer = context->importer;
 				Model* model = context->model;
 
-				FbxScene* scene = context->scene = FbxScene::Create(context->manager, "ImportScene");
+				fbxsdk::FbxScene* scene = context->scene = FbxScene::Create(context->manager, "ImportScene");
 				if (!importer->Import(scene))
 				{
 					FbxStatus::EStatusCode errorCode;
@@ -422,6 +422,7 @@ namespace General
 				FbxGeometryConverter converter(context->manager);
 				converter.Triangulate(scene, true);
 
+				model->unit = static_cast<float>(scene->GetGlobalSettings().GetSystemUnit().GetScaleFactor());
 				context->converter = &converter;
 
 				FbxNode* root = scene->GetRootNode();

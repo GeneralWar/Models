@@ -116,6 +116,7 @@ namespace General
 		struct Model
 		{
 			Node* root;
+			float unit; // relative to centimeter
 
 			int materialCount;
 			Material** materials;
