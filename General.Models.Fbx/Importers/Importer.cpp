@@ -193,20 +193,57 @@ namespace General
 				return material;
 			}
 
+			FbxAMatrix compute_total_matrix(Context* context, const fbxsdk::FbxMesh* fbxMesh)
+			{
+				FbxAMatrix geometry;
+				FbxVector4 translation, rotation, scaling;
+				fbxsdk::FbxNode* node = fbxMesh->GetNode();
+				translation = node->GetGeometricTranslation(FbxNode::eSourcePivot);
+				rotation = node->GetGeometricRotation(FbxNode::eSourcePivot);
+				scaling = node->GetGeometricScaling(FbxNode::eSourcePivot);
+				geometry.SetT(translation);
+				geometry.SetR(rotation);
+				geometry.SetS(scaling);
+
+				FbxAMatrix& globalTransform = context->scene->GetAnimationEvaluator()->GetNodeGlobalTransform(node);
+				//if (!ImportOptions.bTransformVertexToAbsolute)
+				//{
+				//	if (ImportOptions->bBakePivotInVertex)
+				//	{
+				//		FbxAMatrix pivotGeometry;
+				//		FbxVector4 rotationPivot = node->GetRotationPivot(FbxNode::eSourcePivot);
+				//		FbxVector4 fullPivot;
+				//		fullPivot[0] = -rotationPivot[0];
+				//		fullPivot[1] = -rotationPivot[1];
+				//		fullPivot[2] = -rotationPivot[2];
+				//		pivotGeometry.SetT(fullPivot);
+				//		geometry = geometry * pivotGeometry;
+				//	}
+				//	else
+				//	{
+				//		//No Vertex transform and no bake pivot, it will be the mesh as-is.
+				//		geometry.SetIdentity();
+				//	}
+				//}
+				//We must always add the geometric transform. Only Max use the geometric transform which is an offset to the local transform of the node
+				return /*ImportOptions->bTransformVertexToAbsolute ?*/ globalTransform * geometry /*: geometry*/;
+			}
+
 			/// <returns>vertex count</returns>
 			int analyze_mesh_vertices(Context* context, const FbxMesh* fbxMesh, Mesh* mesh)
 			{
 				int vertexCount = fbxMesh->GetControlPointsCount();
 				mesh_set_vertex_count(mesh, vertexCount);
 
+				FbxAMatrix matrix = compute_total_matrix(context, fbxMesh);
 				FbxVector4* controlPoints = fbxMesh->GetControlPoints();
 				for (int vertexIndex = 0; vertexIndex < vertexCount; ++vertexIndex)
 				{
 					Vertex* vertex = mesh->vertices + vertexIndex;
-					FbxVector4* point = controlPoints + vertexIndex;
-					vertex->position[0] = static_cast<float>(point->mData[0]);
-					vertex->position[1] = static_cast<float>(point->mData[1]);
-					vertex->position[2] = static_cast<float>(point->mData[2]);
+					FbxVector4 point = matrix.MultT(controlPoints[vertexIndex]);
+					vertex->position[0] = static_cast<float>(point.mData[0]);
+					vertex->position[1] = -static_cast<float>(point.mData[1]); // make negative, make no sence but correct, reference from unreal engine
+					vertex->position[2] = static_cast<float>(point.mData[2]);
 				}
 				return vertexCount;
 			}
@@ -227,6 +264,7 @@ namespace General
 
 				FbxVector4 fbxNormal;
 				Normal* normal = nullptr;
+				FbxAMatrix matrix = compute_total_matrix(context, fbxMesh).Inverse().Transpose();
 				mesh_set_index_count(mesh, indexCount);
 				mesh_set_normal_count(mesh, indexCount);
 				for (int polygonIndex = 0, i = 0; polygonIndex < polygonCount; ++polygonIndex, ++i)
@@ -242,8 +280,9 @@ namespace General
 							if (fbxMesh->GetPolygonVertexNormal(polygonIndex, i, fbxNormal))
 							{
 								normal = mesh->normals + n;
+								fbxNormal = matrix.MultT(fbxNormal);
 								normal->value[0] = static_cast<float>(fbxNormal.mData[0]);
-								normal->value[1] = static_cast<float>(fbxNormal.mData[1]);
+								normal->value[1] = -static_cast<float>(fbxNormal.mData[1]); // make negative, make no sence but correct, reference from unreal engine
 								normal->value[2] = static_cast<float>(fbxNormal.mData[2]);
 							}
 						}
@@ -416,7 +455,7 @@ namespace General
 					}
 				}
 
-				FbxAxisSystem system(FbxAxisSystem::EPreDefinedAxisSystem::eDirectX);
+				fbxsdk::FbxAxisSystem system(fbxsdk::FbxAxisSystem::EPreDefinedAxisSystem::eDirectX);
 				system.ConvertScene(scene);
 
 				FbxGeometryConverter converter(context->manager);
