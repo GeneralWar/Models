@@ -30,8 +30,7 @@ namespace General
 				if (nullptr == sdk_manager)
 				{
 					sdk_manager = FbxManager::Create();
-					Tracer::Log("fbx version: %s", FbxManager::GetVersion());
-					Tracer::SetPrefix("[General.Models.Fbx]");
+					TRACE("fbx version: %s", FbxManager::GetVersion());
 
 					FbxIOSettings* ioSettings = FbxIOSettings::Create(sdk_manager, "IOSRoot");
 					sdk_manager->SetIOSettings(ioSettings);
@@ -44,12 +43,12 @@ namespace General
 				FbxImporter* importer = context->importer;
 				if (nullptr == importer)
 				{
-					Tracer::Error("no FbxImporter instance");
+					TRACE_ERROR("no FbxImporter instance");
 					return false;
 				}
 				if (!importer->IsFBX())
 				{
-					Tracer::Error("%s is not a fbx file", context->filename);
+					TRACE_ERROR("%s is not a fbx file", context->filename);
 					return false;
 				}
 
@@ -62,7 +61,7 @@ namespace General
 					}
 
 					FbxString error = status.GetErrorString();
-					Tracer::Error(error.Buffer());
+					TRACE_ERROR(error.Buffer());
 					return false;
 				}
 
@@ -116,7 +115,7 @@ namespace General
 					return;
 				}
 
-				Tracer::Warn("Should handle other texture: %s", propertyName);
+				TRACE_WARN("Should handle other texture: %s", propertyName);
 			}
 
 			void enumerate_material_property_for_texture(Context* context, Material* material, /*const */FbxSurfaceMaterial* fbxMaterial)
@@ -331,7 +330,7 @@ namespace General
 					if (FbxGeometryElement::eByControlPoint == mappingMode)
 					{
 						UV* uv = uvSet->uvArray;
-						Tracer::Warn("TODO: ensure this condition");
+						TRACE_WARN("TODO: ensure this condition");
 						for (int polygonIndex = 0; polygonIndex < polygonCount; ++polygonIndex)
 						{
 							// build the max index array that we need to pass into MakePoly
@@ -467,7 +466,7 @@ namespace General
 				FbxNode* root = scene->GetRootNode();
 				if (nullptr == root)
 				{
-					Tracer::Error("no root node");
+					TRACE_ERROR("no root node");
 					return;
 				}
 
@@ -491,7 +490,7 @@ namespace General
 				if (!status)
 				{
 					FbxString error = importer->GetStatus().GetErrorString();
-					Tracer::Error("failed to initialize FbxImporter: %s", error.Buffer());
+					TRACE_ERROR("failed to initialize FbxImporter: %s", error.Buffer());
 				}
 			}
 
