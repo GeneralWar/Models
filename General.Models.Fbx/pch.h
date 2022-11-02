@@ -17,16 +17,4 @@
 
 #include <fbxsdk.h>
 
-#ifndef TRACE
-#define TRACE(format, ...) Tracer::Log(LOG_LEVEL_LOG, "[General.Model.Fbx]", format, __VA_ARGS__);
-#endif
-
-#ifndef TRACE_WARN
-#define TRACE_WARN(format, ...) Tracer::Log(LOG_LEVEL_WARN, "[General.Model.Fbx]", format, __VA_ARGS__);
-#endif
-
-#ifndef TRACE_ERROR
-#define TRACE_ERROR(format, ...) Tracer::Log(LOG_LEVEL_ERROR, "[General.Model.Fbx]", format, __VA_ARGS__);
-#endif
-
 #endif //PCH_H
