@@ -11,5 +11,6 @@
 #include "framework.h"
 
 #include <General.Cpp/General.hpp>
+#include "Common.hpp"
 
 #endif //PCH_H

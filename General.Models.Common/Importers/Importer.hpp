@@ -15,7 +15,7 @@ namespace General
 			Importer(const char* filename);
 			virtual ~Importer() = 0;
 
-			inline const char* GetFilename() const { return mFilename; }
+			inline const char* GetFilename() const;
 
 			virtual bool IsValid() = 0;
 

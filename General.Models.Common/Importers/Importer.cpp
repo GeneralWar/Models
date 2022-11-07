@@ -20,5 +20,7 @@ namespace General
 				free((void*)mFilename);
 			}
 		}
+
+		inline const char* Importer::GetFilename() const { return mFilename; }
 	}
 }

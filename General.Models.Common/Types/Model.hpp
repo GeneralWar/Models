@@ -29,10 +29,10 @@ namespace General
 			UV* uvArray;
 		};
 
-		GENERAL_API UVSet* create_uv_set(const char* name);
-		GENERAL_API void uv_set_set_uv_count(UVSet* set, const int count);
-		GENERAL_API UVSet* find_uv_set(UVSet** sets, const int setCount, const char* setName);
-		GENERAL_API void destroy_uv_set(UVSet* set);
+		EXPORT UVSet* create_uv_set(const char* name);
+		EXPORT void uv_set_set_uv_count(UVSet* set, const int count);
+		EXPORT UVSet* find_uv_set(UVSet** sets, const int setCount, const char* setName);
+		EXPORT void destroy_uv_set(UVSet* set);
 
 		struct VertexIndex
 		{
@@ -48,10 +48,9 @@ namespace General
 			bool useDefaultUVSet;
 		};
 
-		GENERAL_API MaterialTexture* create_material_texture();
-		GENERAL_API void set_material_texture(MaterialTexture* texture, const char* filename, const char* uvSet);
-		GENERAL_API void destroy_material_texture(MaterialTexture* material);
-
+		EXPORT MaterialTexture* create_material_texture();
+		EXPORT void set_material_texture(MaterialTexture* texture, const char* filename, const char* uvSet);
+		EXPORT void destroy_material_texture(MaterialTexture* material);
 
 		struct Material
 		{
@@ -62,13 +61,13 @@ namespace General
 			MaterialTexture* specular;
 		};
 
-		GENERAL_API Material* create_material(const char* name);
-		GENERAL_API void material_set_ambient(Material* material, const char* filename, const char* uvSet);
-		GENERAL_API void material_set_diffuse(Material* material, const char* filename, const char* uvSet);
-		GENERAL_API void material_set_emissive(Material* material, const char* filename, const char* uvSet);
-		GENERAL_API void material_set_specular(Material* material, const char* filename, const char* uvSet);
-		GENERAL_API Material* find_material(Material** materials, const int materialCount, const char* materialName);
-		GENERAL_API void destroy_material(Material* material);
+		EXPORT Material* create_material(const char* name);
+		EXPORT void material_set_ambient(Material* material, const char* filename, const char* uvSet);
+		EXPORT void material_set_diffuse(Material* material, const char* filename, const char* uvSet);
+		EXPORT void material_set_emissive(Material* material, const char* filename, const char* uvSet);
+		EXPORT void material_set_specular(Material* material, const char* filename, const char* uvSet);
+		EXPORT Material* find_material(Material** materials, const int materialCount, const char* materialName);
+		EXPORT void destroy_material(Material* material);
 
 		struct Mesh
 		{
@@ -90,13 +89,13 @@ namespace General
 			Normal* normals;
 		};
 
-		GENERAL_API Mesh* create_mesh(const char* name);
-		GENERAL_API void mesh_set_vertex_count(Mesh* mesh, const int vertexCount);
-		GENERAL_API void mesh_set_index_count(Mesh* mesh, const int indexCount);
-		GENERAL_API void mesh_set_normal_count(Mesh* mesh, const int indexCount);
-		GENERAL_API void mesh_add_material(Mesh* mesh, Material* material);
-		GENERAL_API void mesh_add_uv_set(Mesh* mesh, UVSet* uvSet);
-		GENERAL_API void destroy_mesh(Mesh* mesh);
+		EXPORT Mesh* create_mesh(const char* name);
+		EXPORT void mesh_set_vertex_count(Mesh* mesh, const int vertexCount);
+		EXPORT void mesh_set_index_count(Mesh* mesh, const int indexCount);
+		EXPORT void mesh_set_normal_count(Mesh* mesh, const int indexCount);
+		EXPORT void mesh_add_material(Mesh* mesh, Material* material);
+		EXPORT void mesh_add_uv_set(Mesh* mesh, UVSet* uvSet);
+		EXPORT void destroy_mesh(Mesh* mesh);
 
 		struct Node
 		{
@@ -109,9 +108,9 @@ namespace General
 			Node** children;
 		};
 
-		GENERAL_API Node* create_node(const char* name);
-		GENERAL_API void node_set_child_count(Node* node, const int count);
-		GENERAL_API void destroy_node(Node* node);
+		EXPORT Node* create_node(const char* name);
+		EXPORT void node_set_child_count(Node* node, const int count);
+		EXPORT void destroy_node(Node* node);
 
 		struct Model
 		{
@@ -122,9 +121,9 @@ namespace General
 			Material** materials;
 		};
 
-		GENERAL_API Model* create_model();
-		GENERAL_API void model_add_material_count(Model* model);
-		GENERAL_API void destroy_model(Model* model);
+		EXPORT Model* create_model();
+		EXPORT void model_add_material_count(Model* model);
+		EXPORT void destroy_model(Model* model);
 	}
 }
 
