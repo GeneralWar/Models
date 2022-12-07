@@ -1,27 +1,78 @@
 ﻿#ifndef GENERAL_MODELS_FBX_IMPORTER_HPP
 #define GENERAL_MODELS_FBX_IMPORTER_HPP
 
+namespace fbxsdk
+{
+	class FbxManager;
+	class FbxImporter;
+
+	class FbxScene;
+	class FbxNode;
+	class FbxMesh;
+
+	class FbxLayerElementUV;
+	typedef FbxLayerElementUV FbxGeometryElementUV;
+
+	class FbxAnimStack;
+	class FbxAnimLayer;
+
+	class FbxProperty;
+	class FbxSurfaceMaterial;
+}
+
 namespace General
 {
 	namespace Models
 	{
-		namespace Fbx
+		class FbxModelImporter : public Importer
 		{
-			struct Context;
+		private:
+			FbxManager* mManager;
+			FbxImporter* mImporter;
 
-			class ModelImporter : public Importer
-			{
-			private:
-				Context* mContext;
-			public:
-				ModelImporter(const char* filename);
-				~ModelImporter();
+			std::unordered_map<Mesh*, std::vector<Normal>> mMeshNormals;
 
-				virtual bool IsValid() override;
+			std::unordered_map<std::string, const FbxGeometryElementUV*> mFbxUVSets;
 
-				virtual const Model* Import() override;
-			};
-		}
+			std::unordered_map<Mesh*, FbxMesh*> mMesh2FbxMap;
+			std::unordered_map<FbxNode*, Node*> mFbx2NodeMap;
+
+			FbxAnimEvaluator* mAnimationEvaluator;
+			std::vector<FbxAnimStack*> mAnimationStacks;
+			std::vector<FbxAnimLayer*> mAnimationLayers;
+			std::vector<Animation*> mAnimations;
+		public:
+			FbxModelImporter(const ImportParams& params);
+			~FbxModelImporter();
+		private:
+			bool checkImportStatus();
+		protected:
+			virtual bool internalImport(Model* model) override;
+		private:
+			void import(FbxScene* scene);
+
+			void checkNode(Node* node, FbxNode* fbxNode);
+
+			Mesh* checkMesh(FbxMesh* fbxMesh);
+			int checkMeshVertices(const FbxMesh* fbxMesh, Mesh* mesh);
+			int checkMeshIndices(const FbxMesh* fbxMesh, Mesh* mesh);
+			void checkMeshUVs(const FbxMesh* fbxMesh, Mesh* mesh);
+
+			Material* checkMaterial(/*const */FbxSurfaceMaterial* fbxMaterial);
+			void enumerateMaterialPropertyForTexture(Material* material, /*const */FbxSurfaceMaterial* fbxMaterial);
+			void checkPropertyForTexture(Material* material, const FbxProperty* property);
+			const char* checkTexture(Material* material, FbxTexture* fbxTexture);
+
+			void checkAnimations(FbxScene* scene);
+			void checkNodeAnimationFrames(FbxNode* fbxNode, Node* node);
+
+			void checkSkinWeights();
+
+			void postProcess();
+			void checkVertices(Mesh* mesh, const UVSet* uvSet, std::vector<Triangle>& triangles, std::vector<Vertex>& vertices);
+			void checkVertices(Mesh* mesh, const std::vector<Normal> normals, std::vector<Triangle>& triangles, std::vector<Vertex>& vertices);
+			void checkVertices(Mesh* mesh, const UVSet* uvSet, const std::vector<Normal> normals, std::vector<Triangle>& triangles, std::vector<Vertex>& vertices);
+		};
 	}
 }
 

@@ -39,6 +39,9 @@
     <ClInclude Include="Importers\Importer.hpp">
       <Filter>Importers</Filter>
     </ClInclude>
+    <ClInclude Include="Types\Animation.hpp">
+      <Filter>Types</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pch.cpp">
@@ -49,6 +52,9 @@
     </ClCompile>
     <ClCompile Include="Importers\Importer.cpp">
       <Filter>Importers</Filter>
+    </ClCompile>
+    <ClCompile Include="Types\Animation.cpp">
+      <Filter>Types</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

@@ -68,5 +68,7 @@
 **/Output
 **/*.ll
 
-Libraries/includes/glm/out/
-Projects/Cross/Configs/UserCache.json
+/Library
+/ThirdParty/Assimp-Build
+
+/General.Models.ConsoleTest/*.txt

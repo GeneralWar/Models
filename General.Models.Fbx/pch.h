@@ -13,7 +13,7 @@
 
 #include <General.Cpp/General.hpp>
 
-#include "../General.Models.Common/Common.hpp"
+#include <General.Models.Common/Common.hpp>
 
 #include <fbxsdk.h>
 

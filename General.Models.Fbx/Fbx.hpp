@@ -6,8 +6,9 @@ namespace General
 	namespace Models
 	{
 		struct Model;
+		struct ImportParams;
 
-		GENERAL_API const Model* load_model_fbx(const char* filename);
+		EXPORT const Model* load_model_from_fbx(const ImportParams* params);
 	}
 }
 

@@ -5,41 +5,107 @@ namespace General
 {
 	namespace Models
 	{
+		/****************************************************************
+		* Axis direction: +x == right, +y == up, +z == into screen
+		* ***************************************************************/
+
+		struct Node;
+
+		struct Vector2
+		{
+			union
+			{
+				struct
+				{
+					float x;
+					float y;
+				};
+				float values[2];
+			};
+		};
+
+		struct Vector3
+		{
+			union
+			{
+				struct
+				{
+					float x;
+					float y;
+					float z;
+				};
+				float values[3];
+			};
+		};
+
+		struct Vector4
+		{
+			union
+			{
+				struct
+				{
+					float x;
+					float y;
+					float z;
+					float w;
+				};
+				float values[4];
+			};
+		};
+
+		EXPORT Vector3 vector3_scale(const Vector3 v, const float scale);
+
+		struct Transform
+		{
+			Vector3 translation;
+			Vector3 rotation; // euler angles, in degrees
+			Vector3 scaling;
+		};
+
 		struct Vertex
 		{
-			float position[3];
+			Vector3 position;
+			Vector3 normal;
+			Vector2 uv[4];
+		};
+
+		struct Triangle
+		{
+			union
+			{
+				struct
+				{
+					int index0;
+					int index1;
+					int index2;
+				};
+				int indices[3];
+			};
 		};
 
 		struct UV
 		{
 			int vertexIndex;
-			float value[2];
+			Vector2 uv;
 		};
 
 		struct Normal
 		{
 			int vertexIndex;
-			float value[3];
+			Vector3 normal;
 		};
 
 		struct UVSet
 		{
 			char* name;
 			int uvCount;
-			UV* uvArray;
+			UV* uvArray; // 与Index数组对应
 		};
 
 		EXPORT UVSet* create_uv_set(const char* name);
 		EXPORT void uv_set_set_uv_count(UVSet* set, const int count);
 		EXPORT UVSet* find_uv_set(UVSet** sets, const int setCount, const char* setName);
 		EXPORT void destroy_uv_set(UVSet* set);
-
-		struct VertexIndex
-		{
-			int index0;
-			int index1;
-			int index2;
-		};
 		
 		struct MaterialTexture
 		{
@@ -49,8 +115,8 @@ namespace General
 		};
 
 		EXPORT MaterialTexture* create_material_texture();
-		EXPORT void set_material_texture(MaterialTexture* texture, const char* filename, const char* uvSet);
-		EXPORT void destroy_material_texture(MaterialTexture* material);
+		EXPORT void set_material_texture(MaterialTexture* instance, const char* filename, const char* uvSet);
+		EXPORT void destroy_material_texture(MaterialTexture* instance);
 
 		struct Material
 		{
@@ -62,12 +128,31 @@ namespace General
 		};
 
 		EXPORT Material* create_material(const char* name);
-		EXPORT void material_set_ambient(Material* material, const char* filename, const char* uvSet);
-		EXPORT void material_set_diffuse(Material* material, const char* filename, const char* uvSet);
-		EXPORT void material_set_emissive(Material* material, const char* filename, const char* uvSet);
-		EXPORT void material_set_specular(Material* material, const char* filename, const char* uvSet);
-		EXPORT Material* find_material(Material** materials, const int materialCount, const char* materialName);
-		EXPORT void destroy_material(Material* material);
+		EXPORT void material_set_ambient(Material* instance, const char* filename, const char* uvSet);
+		EXPORT void material_set_diffuse(Material* instance, const char* filename, const char* uvSet);
+		EXPORT void material_set_emissive(Material* instance, const char* filename, const char* uvSet);
+		EXPORT void material_set_specular(Material* instance, const char* filename, const char* uvSet);
+		EXPORT Material* find_material(Material** instance, const int materialCount, const char* materialName);
+		EXPORT void destroy_material(Material* instance);
+
+		struct WeightData
+		{
+			int index;
+			float weight;
+		};
+
+		struct WeightCollection
+		{
+			Node* bone;
+			Transform boneOffset;
+
+			int weightCount;
+			WeightData* weights;
+		};
+
+		EXPORT WeightCollection* create_weight_collection(Node* bone, Transform boneTransform, const int weightCount);
+		EXPORT void weight_collection_copy_weight(WeightCollection* instance, const int templateIndex, const int newIndex);
+		EXPORT void destroy_weight_collection(WeightCollection* instance);
 
 		struct Mesh
 		{
@@ -76,26 +161,23 @@ namespace General
 			int vertexCount;
 			Vertex* vertices; 
 
-			int indexCount;
-			VertexIndex* indices;
+			int triangleCount;
+			Triangle* triangles;
 
 			int materialCount;
 			Material** materials;
 
-			int uvSetCount;
-			UVSet** uvSets;
-
-			int normalCount;
-			Normal* normals;
+			int weightCollectionCount;
+			WeightCollection** weightCollections;
 		};
 
 		EXPORT Mesh* create_mesh(const char* name);
-		EXPORT void mesh_set_vertex_count(Mesh* mesh, const int vertexCount);
-		EXPORT void mesh_set_index_count(Mesh* mesh, const int indexCount);
-		EXPORT void mesh_set_normal_count(Mesh* mesh, const int indexCount);
-		EXPORT void mesh_add_material(Mesh* mesh, Material* material);
-		EXPORT void mesh_add_uv_set(Mesh* mesh, UVSet* uvSet);
-		EXPORT void destroy_mesh(Mesh* mesh);
+		EXPORT void mesh_set_vertex_count(Mesh* instance, const int count);
+		EXPORT void mesh_set_triangle_count(Mesh* instance, const int count);
+		EXPORT void mesh_add_material(Mesh* instance, Material* material);
+		EXPORT void mesh_add_weight_collection(Mesh* instance, WeightCollection* collection);
+		EXPORT void mesh_copy_weight(Mesh* instance, const int templateIndex, const int newIndex);
+		EXPORT void destroy_mesh(Mesh* instance);
 
 		struct Node
 		{
@@ -104,26 +186,41 @@ namespace General
 
 			Mesh* mesh;
 
+			Node* parent;
+
 			int childCount;
 			Node** children;
+
+			Vector3 localPosition;
+			Vector3 localRotation; // in degrees
+			Vector3 localScaling;
 		};
 
 		EXPORT Node* create_node(const char* name);
-		EXPORT void node_set_child_count(Node* node, const int count);
-		EXPORT void destroy_node(Node* node);
+		EXPORT void node_add_child(Node* instance, Node* child);
+		EXPORT void destroy_node(Node* instance);
+
+		struct Animation;
 
 		struct Model
 		{
 			Node* root;
-			float unit; // relative to centimeter
+
+			int meshCount;
+			Mesh** meshes;
 
 			int materialCount;
 			Material** materials;
+
+			int animationCount;
+			Animation** animations;
 		};
 
 		EXPORT Model* create_model();
-		EXPORT void model_add_material_count(Model* model);
-		EXPORT void destroy_model(Model* model);
+		EXPORT void model_add_mesh(Model* instance, Mesh* mesh);
+		EXPORT void model_add_material(Model* instance, Material* material);
+		EXPORT void model_add_animation(Model* instance, Animation* animation);
+		EXPORT void destroy_model(Model* instance);
 	}
 }
 

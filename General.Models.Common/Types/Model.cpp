@@ -5,28 +5,20 @@ namespace General
 {
 	namespace Models
 	{
-		void set_string(char** buffer, const char* name)
+		Vector3 vector3_scale(const Vector3 v, const float scale)
 		{
-			if (*buffer)
-			{
-				free(*buffer);
-			}
-			*buffer = nullptr;
-
-			if (nullptr == name)
-			{
-				return;
-			}
-
-			*buffer = (char*)malloc(strlen(name) + 1);
-			strcpy(*buffer, name);
+			Vector3 r = { };
+			r.x = v.x * scale;
+			r.y = v.y * scale;
+			r.z = v.z * scale;
+			return r;
 		}
 
 		UVSet* create_uv_set(const char* name)
 		{
 			UVSet* set = (UVSet*)malloc(sizeof(UVSet));
 			memset(set, 0, sizeof(UVSet));
-			set_string(&set->name, name);
+			g_set_string(&set->name, name);
 			return set;
 		}
 
@@ -57,78 +49,108 @@ namespace General
 			free(set);
 		}
 
-		void add_material_count(Material*** materials, int* materialCount)
+		WeightCollection* create_weight_collection(Node* bone, Transform boneTransform, const int weightCount)
 		{
-			int materialCount0 = *materialCount;
-			Material** materials0 = *materials;
-			size_t newSize = sizeof(Material*) * (++(*materialCount));
-			*materials = (Material**)malloc(newSize);
-			memset(*materials, 0, newSize);
-			memcpy(*materials, materials0, sizeof(Material*) * materialCount0);
-		}
-
-		Mesh* create_mesh(const char* name)
-		{
-			Mesh* mesh = (Mesh*)malloc(sizeof(Mesh));
-			memset(mesh, 0, sizeof(Mesh));
-			set_string(&mesh->name, name);
-			return mesh;
-		}
-
-		void mesh_set_vertex_count(Mesh* mesh, const int count)
-		{
-			g_resize_array(&mesh->vertices, &mesh->vertexCount, count);
-		}
-
-		void mesh_set_index_count(Mesh* mesh, const int count)
-		{
-			g_resize_array(&mesh->indices, &mesh->indexCount, count);
-		}
-
-		void mesh_set_normal_count(Mesh* mesh, const int count)
-		{
-			g_resize_array(&mesh->normals, &mesh->normalCount, count);
+			WeightCollection* instance = g_alloc_struct<WeightCollection>();
+			instance->bone = bone;
+			instance->boneOffset = boneTransform;
+			g_resize_array(&instance->weights, &instance->weightCount, weightCount);
+			return instance;
 		}
 		
-		void mesh_add_material(Mesh* mesh, Material* material)
+		void weight_collection_copy_weight(WeightCollection* instance, const int templateIndex, const int newIndex)
 		{
-			add_material_count(&mesh->materials, &mesh->materialCount);
-			mesh->materials[mesh->materialCount - 1] = material;
-		}
-		
-		void mesh_add_uv_set(Mesh* mesh, UVSet* uvSet)
-		{
-			g_resize_array(reinterpret_cast<void**>(&mesh->uvSets), &mesh->uvSetCount, sizeof(UVSet*), mesh->uvSetCount + 1);
-			mesh->uvSets[mesh->uvSetCount - 1] = uvSet;
-		}
-
-		void destroy_mesh(Mesh* mesh)
-		{
-			if (nullptr == mesh)
+			int index = -1;
+			int count = instance->weightCount;
+			const WeightData* weight = instance->weights;
+			for (int i = 0; i < count; ++i, ++weight)
+			{
+				if (weight->index == templateIndex)
+				{
+					index = i;
+					break;
+				}
+			}
+			if (-1 == index)
 			{
 				return;
 			}
 
-			if (mesh->vertices)
-			{
-				free(mesh->vertices);
-			}
-			if (mesh->indices)
-			{
-				free(mesh->indices);
-			}
-			if (mesh->normals)
-			{
-				free(mesh->normals);
-			}
-			// should not destroy materials because model create them
-			for (int i = 0; i < mesh->uvSetCount; ++i)
-			{
-				destroy_uv_set(mesh->uvSets[i]);
-			}
+			g_resize_array(&instance->weights, &instance->weightCount, count + 1);
+			memcpy(instance->weights + count, instance->weights + index, sizeof(WeightData));
+			WeightData data = instance->weights[index];
+			(instance->weights + count)->index = newIndex;
+		}
 
-			free(const_cast<char*>(mesh->name));
-			free(mesh);
+		void destroy_weight_collection(WeightCollection* instance)
+		{
+			if (instance->weights) free(instance->weights);
+			free(instance);
+		}
+
+		Mesh* create_mesh(const char* name)
+		{
+			Mesh* instance = (Mesh*)malloc(sizeof(Mesh));
+			memset(instance, 0, sizeof(Mesh));
+			g_set_string(&instance->name, name);
+			return instance;
+		}
+
+		void mesh_set_vertex_count(Mesh* instance, const int count)
+		{
+			g_resize_array(&instance->vertices, &instance->vertexCount, count);
+		}
+
+		void mesh_set_triangle_count(Mesh* instance, const int count)
+		{
+			g_resize_array(&instance->triangles, &instance->triangleCount, count);
+		}
+		
+		void mesh_add_material(Mesh* instance, Material* material)
+		{
+			int index = instance->materialCount;
+			g_resize_array(&instance->materials, &instance->materialCount, index + 1);
+			instance->materials[index] = material;
+		}
+
+		void mesh_add_weight_collection(Mesh* instance, WeightCollection* collection)
+		{
+			int index = instance->weightCollectionCount;
+			g_resize_array(&instance->weightCollections, &instance->weightCollectionCount, index + 1);
+			instance->weightCollections[index] = collection;
+		}
+
+		void mesh_copy_weight(Mesh* instance, const int templateIndex, const int newIndex)
+		{
+			WeightCollection** collections = instance->weightCollections;
+			for (int i = 0; i < instance->weightCollectionCount; ++i, ++collections)
+			{
+				weight_collection_copy_weight(*collections, templateIndex, newIndex);
+			}
+		}
+
+		void destroy_mesh(Mesh* instance)
+		{
+			CHECK(instance, );
+
+			if (instance->vertices) free(instance->vertices);
+			if (instance->triangles) free(instance->triangles);
+
+			for (int i = 0; i < instance->weightCollectionCount; ++i)
+			{
+				destroy_weight_collection(instance->weightCollections[i]);
+			}
+			free(instance->weightCollections);
+
+			for (int i = 0; i < instance->materialCount; ++i)
+			{
+				destroy_material(instance->materials[i]);
+			}
+			free(instance->materials);
+
+			if (instance->name) free(const_cast<char*>(instance->name));
+
+			free(instance);
 		}
 
 		MaterialTexture* create_material_texture()
@@ -141,65 +163,66 @@ namespace General
 		void set_material_texture(MaterialTexture* material, const char* filename, const char* uvSet)
 		{
 			CHECK(material, );
-			set_string(&material->texture, filename);
-			set_string(&material->uvSet, uvSet);
+			g_set_string(&material->texture, filename);
+			g_set_string(&material->uvSet, uvSet);
 		}
 
 		void destroy_material_texture(MaterialTexture* material)
 		{
 			if (material->texture) free(material->texture);
 			if (material->uvSet) free(material->uvSet);
+			free(material);
 		}
 
 		Material* create_material(const char* name)
 		{
 			Material* material = (Material*)malloc(sizeof(Material));
 			memset(material, 0, sizeof(Material));
-			set_string(&material->name, name);
+			g_set_string(&material->name, name);
 			return material;
 		}
 		
-		void material_set_ambient(Material* material, const char* filename, const char* uvSet)
+		void material_set_ambient(Material* instance, const char* filename, const char* uvSet)
 		{
-			if (nullptr == material->ambient)
+			if (nullptr == instance->ambient)
 			{
-				material->ambient = create_material_texture();
+				instance->ambient = create_material_texture();
 			}
-			set_material_texture(material->ambient, filename, uvSet);
+			set_material_texture(instance->ambient, filename, uvSet);
 		}
 		
-		void material_set_diffuse(Material* material, const char* filename, const char* uvSet)
+		void material_set_diffuse(Material* instance, const char* filename, const char* uvSet)
 		{
-			if (nullptr == material->diffuse)
+			if (nullptr == instance->diffuse)
 			{
-				material->diffuse = create_material_texture();
+				instance->diffuse = create_material_texture();
 			}
-			set_material_texture(material->diffuse, filename, uvSet);		
+			set_material_texture(instance->diffuse, filename, uvSet);		
 		}
 		
-		void material_set_emissive(Material* material, const char* filename, const char* uvSet)
+		void material_set_emissive(Material* instance, const char* filename, const char* uvSet)
 		{
-			if (nullptr == material->emissive)
+			if (nullptr == instance->emissive)
 			{
-				material->emissive = create_material_texture();
+				instance->emissive = create_material_texture();
 			}
-			set_material_texture(material->emissive, filename, uvSet);			
+			set_material_texture(instance->emissive, filename, uvSet);			
 		}
 		
-		void material_set_specular(Material* material, const char* filename, const char* uvSet)
+		void material_set_specular(Material* instance, const char* filename, const char* uvSet)
 		{
-			if (nullptr == material->specular)
+			if (nullptr == instance->specular)
 			{
-				material->specular = create_material_texture();
+				instance->specular = create_material_texture();
 			}
-			set_material_texture(material->specular, filename, uvSet);		
+			set_material_texture(instance->specular, filename, uvSet);
 		}
 
-		Material* find_material(Material** materials, const int materialCount, const char* materialName)
+		Material* find_material(Material** instance, const int materialCount, const char* materialName)
 		{
 			for (int i = 0; i < materialCount; ++i)
 			{
-				Material* material = materials[i];
+				Material* material = instance[i];
 				if (nullptr != material && 0 == strcmp(material->name, materialName))
 				{
 					return material;
@@ -208,78 +231,108 @@ namespace General
 			return nullptr;
 		}
 
-		void destroy_material(Material* material)
+		void destroy_material(Material* instance)
 		{
-			if (nullptr == material)
+			if (nullptr == instance)
 			{
 				return;
 			}
 
-			if (material->ambient) destroy_material_texture(material->ambient);
-			if (material->diffuse) destroy_material_texture(material->diffuse);
-			if (material->emissive) destroy_material_texture(material->emissive);
-			if (material->specular) destroy_material_texture(material->specular);
+			if (instance->ambient) destroy_material_texture(instance->ambient);
+			if (instance->diffuse) destroy_material_texture(instance->diffuse);
+			if (instance->emissive) destroy_material_texture(instance->emissive);
+			if (instance->specular) destroy_material_texture(instance->specular);
 
-			free(const_cast<char*>(material->name));
-			free(material);
+			if (instance->name) free(const_cast<char*>(instance->name));
+
+			free(instance);
 		}
 
 		Node* create_node(const char* name)
 		{
-			Node* node = (Node*)malloc(sizeof(Node));
-			memset(node, 0, sizeof(Node));
-			set_string(&node->name, name);
+			Node* node = g_alloc_struct<Node>();
+			g_set_string(&node->name, name);
+			node->visible = true;
 			return node;
 		}
 
-		void node_set_child_count(Node* node, const int count)
+		void node_add_child(Node* instance, Node* child)
 		{
-			g_resize_array(reinterpret_cast<void**>(&node->children), &node->childCount, sizeof(Node*), count);
+			int index = instance->childCount;
+			g_resize_array(&instance->children, &instance->childCount, index + 1);
+			instance->children[index] = child;
+			child->parent = instance;
 		}
 
-		void destroy_node(Node* node)
+		void destroy_node(Node* instance)
 		{
-			if (!node)
+			if (!instance)
 			{
 				return;
 			}
 
-			if (node->mesh)
+			if (instance->mesh)
 			{
-				destroy_mesh(node->mesh);
+				destroy_mesh(instance->mesh);
 			}
-			for (int i = 0; i < node->childCount; ++i)
+
+			for (int i = 0; i < instance->childCount; ++i)
 			{
-				destroy_node(node->children[i]);
+				destroy_node(instance->children[i]);
 			}
-			free(const_cast<char*>(node->name));
-			free(node);
+			free(instance->children);
+
+			if (instance->name) free(const_cast<char*>(instance->name));
+			free(instance);
 		}
 
 		Model* create_model()
 		{
-			Model* model = (Model*)malloc(sizeof(Model));
-			memset(model, 0, sizeof(Model));
-			return model;
+			Model* instance = (Model*)malloc(sizeof(Model));
+			memset(instance, 0, sizeof(Model));
+			return instance;
 		}
 
-		void model_add_material_count(Model* model)
+		void model_add_mesh(Model* instance, Mesh* mesh) 
 		{
-			add_material_count(&model->materials, &model->materialCount);
+			int index = instance->meshCount;
+			g_resize_array(&instance->meshes, &instance->meshCount, index + 1);
+			instance->meshes[index] = mesh;
 		}
 
-		void destroy_model(Model* model)
+		void model_add_material(Model* instance, Material* material)
 		{
-			if (model->root)
+			int index = instance->materialCount;
+			g_resize_array(&instance->materials, &instance->materialCount, index + 1);
+			instance->materials[index] = material;
+		}
+
+		void model_add_animation(Model* instance, Animation* animation)
+		{
+			int index = instance->animationCount;
+			g_resize_array(&instance->animations, &instance->animationCount, index + 1);
+			instance->animations[index] = animation;
+		}
+
+		void destroy_model(Model* instance)
+		{
+			CHECK(instance, );
+
+			if (instance->root) destroy_node(instance->root);
+
+			if (instance->meshes) free(instance->meshes);
+			if (instance->materials) free(instance->materials); // release items at destroy_mesh
+
+			if (instance->animations)
 			{
-				destroy_node(model->root);
+				for (int i = 0; i < instance->animationCount; ++i)
+				{
+					destroy_animation(instance->animations[i]);
+				}
+				free(instance->animations);
 			}
 
-			for (int i = 0; i < model->materialCount; ++i)
-			{
-				destroy_material(model->materials[i]);
-			}
-			free(model);
+			free(instance);
 		}
 	}
 }

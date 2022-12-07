@@ -6,12 +6,12 @@ namespace General
 {
 	namespace Models
 	{
-		using namespace Fbx;
-
-		const Model* load_model_fbx(const char* filename)
+		const Model* load_model_from_fbx(const ImportParams* params)
 		{
-			AutoRelease<ModelImporter> importer = MakeAutoRelease<ModelImporter>(filename);
-			return importer->Import();
+			CHECK(params && params->filename && strlen(params->filename), nullptr);
+
+			FbxModelImporter importer(*params);
+			return importer.Import();
 		};
 	}
 }
