@@ -3,7 +3,7 @@
 
 #define _CRT_SECURE_NO_WARNINGS
 #include <General.Cpp/General.hpp>
-#include <General.Models.Fbx/Fbx.hpp>
+//#include <General.Models.Fbx/Fbx.hpp>
 #include <General.Models.Assimp/Assimp.hpp>
 #include <General.Models.Common/Common.hpp>
 using namespace General::Models;
@@ -200,11 +200,11 @@ int main()
 	//save_weights(model1, "Weights1.txt");
 	destroy_model(const_cast<Model*>(model1));
 
-	const Model* model2 = load_model_from_fbx(&params);
+	/*const Model* model2 = load_model_from_fbx(&params);
 	//save_animation(model2->animations[0], "Animation2.txt");
 	//save_hierarchy(model2->root, "Hierarchy2.txt");
 	//save_weights(model2, "Weights2.txt");
-	destroy_model(const_cast<Model*>(model2));
+	destroy_model(const_cast<Model*>(model2));*/
 
 	system("pause");
 	return 0;

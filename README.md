@@ -16,3 +16,7 @@ CMAKE_INSTALL_PREFIX: ./Library
 LIBRARY_SUFFIX: (empty string)  
 
 **注：以上所有路径皆为相对于本仓库的相对路径**
+
+### FBX SDK
+
+因为进度问题，暂时搁置
