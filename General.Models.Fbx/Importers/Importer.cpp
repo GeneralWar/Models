@@ -12,6 +12,10 @@ namespace General
 #define FBX_DEFAULT_UV_SET_NAME "default"
 #endif
 
+#ifndef WEIGHT_EPSILON 
+#define WEIGHT_EPSILON 2e-06F
+#endif
+
 		static FbxManager* check_manager()
 		{
 			static FbxManager* sdk_manager = nullptr;
@@ -69,6 +73,22 @@ namespace General
 			transform.rotation = vector3_from_fbx(matrix.GetR());
 			transform.scaling = vector3_from_fbx(matrix.GetS());
 			return transform;
+		}
+
+		Matrix matrix_from_fbx(FbxAMatrix matrix)
+		{
+			Matrix m = { };
+			float* targetValue = m.values;
+			const FbxDouble4* sourceValues = matrix.Buffer();
+			for (int i = 0; i < 4; ++i, ++sourceValues)
+			{
+				const double* sourceValue = sourceValues->mData;
+				for (int j = 0; j < 4; ++j, ++sourceValue, ++targetValue)
+				{
+					*targetValue = static_cast<float>(*sourceValue);
+				}
+			}
+			return m;
 		}
 
 		static double limit(const double& value, const bool& minLimit, const double& min, const bool& maxLimit, const double& max)
@@ -149,17 +169,17 @@ namespace General
 			return v;
 		}
 
-		FbxAMatrix scale_matrix(const FbxAMatrix& matrix, const float& scale)
+		FbxAMatrix scale_matrix(const FbxAMatrix& matrix, const float& scaling)
 		{
 			FbxAMatrix scaled;
 			FbxDouble4* targetBuffer = scaled.Buffer();
-			FbxDouble4* sourceBuffer = scaled.Buffer();
+			const FbxDouble4* sourceBuffer = matrix.Buffer();
 			for (int i = 0; i < 4; ++i, ++sourceBuffer, ++targetBuffer)
 			{
-				targetBuffer->mData[0] = sourceBuffer->mData[0] * scale;
-				targetBuffer->mData[1] = sourceBuffer->mData[1] * scale;
-				targetBuffer->mData[2] = sourceBuffer->mData[2] * scale;
-				targetBuffer->mData[3] = sourceBuffer->mData[3] * scale;
+				targetBuffer->mData[0] = sourceBuffer->mData[0] * scaling;
+				targetBuffer->mData[1] = sourceBuffer->mData[1] * scaling;
+				targetBuffer->mData[2] = sourceBuffer->mData[2] * scaling;
+				targetBuffer->mData[3] = sourceBuffer->mData[3] * scaling;
 			}
 			return scaled;
 		}
@@ -175,6 +195,13 @@ namespace General
 				sourceBuffer->mData[2] += offsetBuffer->mData[2];
 				sourceBuffer->mData[3] += offsetBuffer->mData[3];
 			}
+		}
+
+		FbxAMatrix convert_fbx_a_matrix(const FbxMatrix& matrix)
+		{
+			FbxAMatrix result;
+			memcpy(result.mData, matrix.mData, sizeof(FbxDouble4) * 4);
+			return result;
 		}
 
 		Node* create_node_from_fbx(FbxNode* fbxNode, const float& scaleFactor)
@@ -224,6 +251,27 @@ namespace General
 			matrix = matrix * transformRelativeMatrix;
 			matrix = matrix * compute_geometry_matrix(linkNode);
 			return matrix;
+		}
+
+		FbxModelImporter::Matrix internal_matrix_from_fbx(const FbxMatrix& matrix)
+		{
+			FbxModelImporter::Matrix m = { };
+			memcpy(m.values, matrix.mData, sizeof(FbxModelImporter::Matrix));
+			return m;
+		}
+
+		FbxModelImporter::Matrix internal_matrix_from_fbx(const FbxAMatrix& matrix)
+		{
+			FbxModelImporter::Matrix m = { };
+			memcpy(m.values, matrix.mData, sizeof(FbxModelImporter::Matrix));
+			return m;
+		}
+
+		FbxAMatrix matrix_to_fbx(const FbxModelImporter::Matrix& matrix)
+		{
+			FbxAMatrix m;
+			memcpy(m.mData, matrix.values, sizeof(FbxModelImporter::Matrix));
+			return m;
 		}
 
 		FbxSystemUnit check_preferred_unit(const UnitLevel& level)
@@ -305,6 +353,74 @@ namespace General
 			return uvSet;
 		}
 
+		FbxAMatrix get_parent_global_pose(FbxPose* fbxPose, const std::unordered_map<FbxNode*, int>& nodes, FbxNode* fbxNode)
+		{
+			FbxNode* parentNode = fbxNode->GetParent();
+			if (!parentNode)
+			{
+				FbxAMatrix matrix;
+				matrix.SetIdentity();
+				return matrix;
+			}
+
+			const auto finder = nodes.find(parentNode);
+			if (nodes.end() == finder)
+			{
+				FbxAMatrix matrix;
+				matrix.SetIdentity();
+				return matrix;
+			}
+
+			if (!fbxPose->IsLocalMatrix(finder->second))
+			{
+				return convert_fbx_a_matrix(fbxPose->GetMatrix(finder->second));
+			}
+
+			FbxAMatrix parentMatrix = get_parent_global_pose(fbxPose, nodes, fbxNode);
+			FbxAMatrix localMatrix = convert_fbx_a_matrix(fbxPose->GetMatrix(finder->second));
+			return parentMatrix * localMatrix;
+		}
+
+		FbxAMatrix get_local_bind_pose(FbxPose* fbxPose, const std::unordered_map<FbxNode*, int>& nodes, FbxNode* fbxNode)
+		{
+			const auto finder = nodes.find(fbxNode);
+			if (nodes.end() == finder)
+			{
+				FbxAMatrix matrix;
+				matrix.SetIdentity();
+				return matrix;
+			}
+
+			if (fbxPose->IsLocalMatrix(finder->second))
+			{
+				return convert_fbx_a_matrix(fbxPose->GetMatrix(finder->second));
+			}
+
+			FbxAMatrix parentMatrix = get_parent_global_pose(fbxPose, nodes, fbxNode);
+			FbxAMatrix globalMatrix = convert_fbx_a_matrix(fbxPose->GetMatrix(finder->second));
+			return globalMatrix * parentMatrix.Inverse();
+		}
+
+		FbxAMatrix get_global_bind_pose(FbxPose* fbxPose, const std::unordered_map<FbxNode*, int>& nodes, FbxNode* fbxNode)
+		{
+			const auto finder = nodes.find(fbxNode);
+			if (nodes.end() == finder)
+			{
+				FbxAMatrix matrix;
+				matrix.SetIdentity();
+				return matrix;
+			}
+
+			if (!fbxPose->IsLocalMatrix(finder->second))
+			{
+				return convert_fbx_a_matrix(fbxPose->GetMatrix(finder->second));
+			}
+
+			FbxAMatrix parentMatrix = get_parent_global_pose(fbxPose, nodes, fbxNode);
+			FbxAMatrix localMatrix = convert_fbx_a_matrix(fbxPose->GetMatrix(finder->second));
+			return parentMatrix * localMatrix;
+		}
+
 		FbxModelImporter::FbxModelImporter(const ImportParams& params) : Importer(params), mManager(), mImporter() { }
 
 		FbxModelImporter::~FbxModelImporter()
@@ -368,6 +484,15 @@ namespace General
 			this->import(scene);
 			scene->Destroy();
 
+			/*const Mesh* mesh = mModel->meshes[0];
+
+			std::vector<Triangle> triangles(mesh->triangleCount);
+			memcpy(triangles.data(), mesh->triangles, sizeof(Triangle) * mesh->triangleCount);
+
+			const WeightCollection* weightCollection = mesh->weightCollections[0];
+			std::vector<WeightData> weightReferences(weightCollection->weightCount);
+			memcpy(weightReferences.data(), weightCollection->weights, sizeof(WeightData) * weightReferences.size());*/
+
 			return true;
 		}
 
@@ -410,9 +535,31 @@ namespace General
 				return;
 			}
 
+			/*int poseCount = scene->GetPoseCount();
+			for (int poseIndex = poseCount - 1; poseIndex >= 0; --poseIndex)
+			{
+				FbxPose* fbxPose = scene->GetPose(poseIndex);
+				if (fbxPose->IsBindPose())
+				{
+					int nodeCount = fbxPose->GetCount();
+					for (int nodeIndex = 0; nodeIndex < nodeCount; ++nodeIndex)
+					{
+						FbxNode* fbxNode = fbxPose->GetNode(nodeIndex);
+						mFbxPoseMap[fbxNode] = matrix_from_fbx(fbxPose->GetMatrix(nodeIndex).Inverse());
+					}
+					mPose = fbxPose;
+					scene->RemovePose(fbxPose);
+					fbxPose->Destroy();
+					
+					mManager->CreateMissingBindPoses(scene);
+
+					break;
+				}
+			}*/
+
 			this->checkAnimations(scene);
 
-			this->checkNode(mModel->root = create_node_from_fbx(root, mScaleFactor), root);
+			this->checkNode(model->root = create_node_from_fbx(root, mScaleFactor), root);
 			g_set_string(&model->root->name, std::filesystem::path(this->GetFilename()).replace_extension().filename().string().c_str());
 
 			this->checkSkinWeights();
@@ -444,7 +591,7 @@ namespace General
 				}
 			}
 
-			this->checkNodeAnimationFrames(fbxNode, node);
+			this->checkAnimationNodeFrames(fbxNode, node);
 
 			int childCount = fbxNode->GetChildCount();
 			for (int i = 0; i < childCount; ++i)
@@ -912,7 +1059,7 @@ namespace General
 			return create_animation_curve_node(target, curveType, static_cast<int>(frames.size()), frames.data());
 		}
 
-		void FbxModelImporter::checkNodeAnimationFrames(FbxNode* fbxNode, Node* node)
+		void FbxModelImporter::checkAnimationNodeFrames(FbxNode* fbxNode, Node* node)
 		{
 			CHECK(fbxNode, );
 			CHECK_INSTANCE(Model*, model, mModel, );
@@ -1007,24 +1154,42 @@ namespace General
 							continue;
 						}
 
+						int* indices = cluster->GetControlPointIndices();
+						double* weights = cluster->GetControlPointWeights();
 						int indexCount = cluster->GetControlPointIndicesCount();
-						FbxAMatrix boneOffsetMatrix = compute_bone_matrix(cluster, fbxMesh);
-						WeightCollection* weightCollection = create_weight_collection(nodeFinder->second, transform_from_fbx(boneOffsetMatrix), indexCount);
+						if (indexCount <= 0 || !indices || !weights)
+						{
+							continue;
+						}
 
 						FbxSubDeformer::EType subType = cluster->GetSubDeformerType();
 						assert(FbxSubDeformer::EType::eCluster == subType && "should handle other types");
 
-						int* indices = cluster->GetControlPointIndices();
-						double* weights = cluster->GetControlPointWeights();
+						FbxAMatrix boneOffsetMatrix = compute_bone_matrix(cluster, fbxMesh);
+						WeightCollection* weightCollection = create_weight_collection(nodeFinder->second, matrix_from_fbx(boneOffsetMatrix), indexCount);
+
+						mFbxPoseMap[fbxLinkNode] = internal_matrix_from_fbx(boneOffsetMatrix.Inverse());
+
+						weightCollection->weightCount = 0;
 						WeightData* weight = weightCollection->weights;
-						FbxAMatrix boneOffsetMatrixInverse = boneOffsetMatrix.Inverse();
-						for (int index = 0; index < indexCount; ++index, ++indices, ++weights, ++weight)
+						//FbxAMatrix boneOffsetMatrixInverse = boneOffsetMatrix.Inverse();
+						for (int index = 0; index < indexCount; ++index, ++indices, ++weights)
 						{
 							weight->index = *indices;
 							weight->weight = static_cast<float>(*weights);
+							if (.0f == weight->weight)
+							{
+								continue;
+							}
 
 							//offset_matrix(transformMatrices[weight->index], scale_matrix(boneOffsetMatrixInverse, weight->weight));
+							++weightCollection->weightCount;
+							++weight;
 						}
+
+						//std::vector<WeightData> weightReferences(weightCollection->weightCount);
+						//memcpy(weightReferences.data(), weightCollection->weights, sizeof(WeightData) * weightReferences.size());
+
 						mesh_add_weight_collection(mesh, weightCollection);
 					}
 				}
@@ -1115,11 +1280,13 @@ namespace General
 						std::vector<Vertex> vertices(mesh->vertexCount);
 						memcpy(vertices.data(), mesh->vertices, sizeof(Vertex) * mesh->vertexCount);
 
-						//this->checkVertices(mesh, setFinder->second, triangles, vertices);
-						//this->checkVertices(mesh, normalFinder->second, triangles, vertices);
-						this->checkVertices(mesh, uvSet, normalFinder->second, triangles, vertices);
+						//this->checkVerticesWithPose(mesh, vertices);
 
-						// 一定要更新顶点，因为在checkVertices中会更新UV和法线
+						//this->checkVerticesWithUVAndNormals(mesh, setFinder->second, triangles, vertices);
+						//this->checkVerticesWithUVAndNormals(mesh, normalFinder->second, triangles, vertices);
+						this->checkVerticesWithUVAndNormals(mesh, uvSet, normalFinder->second, triangles, vertices);
+
+						// 一定要更新顶点，因为在checkVerticesWithUVAndNormals中会更新UV和法线
 						free(mesh->vertices);
 						mesh->vertexCount = static_cast<int>(vertices.size());
 						mesh->vertices = g_copy_array(vertices.data(), vertices.size());
@@ -1130,30 +1297,52 @@ namespace General
 						destroy_uv_set(uvSet);
 					}
 				}
+			}
+		}
 
-				//const std::vector<UVSet*>& uvSets = uvSetFinder->second;
-				//if (uvSets.size())
-				//{
-				//	for (size_t i = 0; i < uvSets.size(); ++i)
-				//	{
-				//		std::vector<Triangle> triangles(mesh->triangleCount);
-				//		memcpy(triangles.data(), mesh->triangles, sizeof(Triangle) * triangles.size());
+		void FbxModelImporter::checkVerticesWithPose(Mesh* mesh, std::vector<Vertex>& vertices)
+		{
+			std::unordered_map<Node*, FbxAMatrix> transforms;
+			for (std::pair<FbxNode*, Matrix> pair : mFbxPoseMap)
+			{
+				auto finder = mFbx2NodeMap.find(pair.first);
+				if (mFbx2NodeMap.end() != finder)
+				{
+					transforms[finder->second] = matrix_to_fbx(pair.second);// .Inverse();
+					//transforms[finder->second] = pair.first->EvaluateGlobalTransform(FbxTime(0));
+				}
+			}
 
-				//		std::vector<Vertex> vertices(mesh->vertexCount);
-				//		memcpy(vertices.data(), mesh->vertices, sizeof(Vertex) * mesh->vertexCount);
+			std::vector<FbxAMatrix> matrices(vertices.size());
+			memset(matrices.data(), 0, sizeof(FbxAMatrix) * matrices.size());
+			for (int collectionIndex = 0; collectionIndex < mesh->weightCollectionCount; ++collectionIndex)
+			{
+				const WeightCollection* collection = mesh->weightCollections[collectionIndex];
+				const auto finder = transforms.find(collection->bone);
+				if (transforms.end() == finder)
+				{
+					continue;
+				}
 
+				const FbxAMatrix& matrix = finder->second;
+				for (int weightIndex = 0; weightIndex < collection->weightCount; ++weightIndex)
+				{
+					const WeightData* weightData = collection->weights + weightIndex;
+					offset_matrix(*(matrices.data() + weightData->index), scale_matrix(matrix, weightData->weight));
+				}
+			}
 
-				//		if (vertices.size() != mesh->vertexCount)
-				//		{
-				//			free(mesh->vertices);
-				//			mesh->vertexCount = static_cast<int>(vertices.size());
-				//			mesh->vertices = g_copy_array(vertices.data(), vertices.size());
-
-				//			free(mesh->triangles);
-				//			mesh->triangles = g_copy_array(triangles.data(), triangles.size());
-				//		}
-				//	}
-				//}
+			Vertex* vertex = vertices.data();
+			const size_t vertexCount = vertices.size();
+			const FbxAMatrix* currentMatrix = matrices.data();
+			for (size_t vertexIndex = 0; vertexIndex < vertexCount; ++vertexIndex, ++vertex, ++currentMatrix)
+			{
+				if (abs(1.0 - currentMatrix->mData[3][3]) > WEIGHT_EPSILON)
+				{
+					assert(0 == currentMatrix->mData[3][3]);
+					continue;
+				}
+				vertex->position = vector3_from_fbx(currentMatrix->MultT(FbxVector4(vertex->position.x, vertex->position.y, vertex->position.z, 1.0)));
 			}
 		}
 
@@ -1178,7 +1367,7 @@ namespace General
 			return vertex;
 		}
 
-		void FbxModelImporter::checkVertices(Mesh* mesh, const UVSet* uvSet, std::vector<Triangle>& triangles, std::vector<Vertex>& vertices)
+		void FbxModelImporter::checkVerticesWithUVAndNormals(Mesh* mesh, const UVSet* uvSet, std::vector<Triangle>& triangles, std::vector<Vertex>& vertices)
 		{
 			struct VertexReference
 			{
@@ -1229,7 +1418,7 @@ namespace General
 			}
 		}
 
-		void FbxModelImporter::checkVertices(Mesh* mesh, const std::vector<Normal> normals, std::vector<Triangle>& triangles, std::vector<Vertex>& vertices)
+		void FbxModelImporter::checkVerticesWithUVAndNormals(Mesh* mesh, const std::vector<Normal> normals, std::vector<Triangle>& triangles, std::vector<Vertex>& vertices)
 		{
 			assert(normals.size() == triangles.size() * 3);
 
@@ -1281,7 +1470,7 @@ namespace General
 			}
 		}
 
-		void FbxModelImporter::checkVertices(Mesh* mesh, const UVSet* uvSet, const std::vector<Normal> normals, std::vector<Triangle>& triangles, std::vector<Vertex>& vertices)
+		void FbxModelImporter::checkVerticesWithUVAndNormals(Mesh* mesh, const UVSet* uvSet, const std::vector<Normal> normals, std::vector<Triangle>& triangles, std::vector<Vertex>& vertices)
 		{
 			assert(uvSet->uvCount == triangles.size() * 3 && uvSet->uvCount == normals.size());
 

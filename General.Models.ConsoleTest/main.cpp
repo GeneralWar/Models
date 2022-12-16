@@ -184,9 +184,9 @@ int main()
 {
 	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
 
-	//const char* filename = "E:\\Projects\\CrossEngine\\Private\\Projects\\Cross\\Assets\\Models\\Stone_Frog\\Stone_Frog.fbx";
+	const char* filename = "E:\\Projects\\CrossEngine\\Private\\Projects\\Cross\\Assets\\Models\\Stone_Frog\\Stone_Frog.fbx";
 	//const char* filename = "E:\\Projects\\Samples\\LearnOpenGL\\resources\\objects\\vampire\\dancing_vampire.dae";
-	const char* filename = "E:\\Projects\\CrossEngine\\Private\\Projects\\Cross\\Assets\\Models\\Vampire\\Vampire.fbx";
+	//const char* filename = "E:\\Projects\\CrossEngine\\Private\\Projects\\Cross\\Assets\\Models\\Vampire\\Vampire.fbx";
 	//import_test(filename, load_model_from_assimp);
 	//import_test(filename, load_model_from_fbx);
 

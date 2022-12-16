@@ -10,6 +10,7 @@ namespace General
 		* ***************************************************************/
 
 		struct Node;
+		struct Animation;
 
 		struct Vector2
 		{
@@ -53,13 +54,28 @@ namespace General
 			};
 		};
 
-		EXPORT Vector3 vector3_scale(const Vector3 v, const float scale);
+		EXPORT Vector3 vector3_scale(const Vector3 v, const float scaling);
 
 		struct Transform
 		{
 			Vector3 translation;
 			Vector3 rotation; // euler angles, in degrees
 			Vector3 scaling;
+		};
+
+		struct Matrix // row matrix
+		{
+			union
+			{
+				struct
+				{
+					float row0[4];
+					float row1[4];
+					float row2[4];
+					float row3[4];
+				};
+				float values[16];
+			};
 		};
 
 		struct Vertex
@@ -144,13 +160,13 @@ namespace General
 		struct WeightCollection
 		{
 			Node* bone;
-			Transform boneOffset;
+			Matrix boneOffset;
 
 			int weightCount;
 			WeightData* weights;
 		};
 
-		EXPORT WeightCollection* create_weight_collection(Node* bone, Transform boneTransform, const int weightCount);
+		EXPORT WeightCollection* create_weight_collection(Node* bone, Matrix boneTransform, const int weightCount);
 		EXPORT void weight_collection_copy_weight(WeightCollection* instance, const int templateIndex, const int newIndex);
 		EXPORT void destroy_weight_collection(WeightCollection* instance);
 
@@ -174,6 +190,7 @@ namespace General
 		EXPORT Mesh* create_mesh(const char* name);
 		EXPORT void mesh_set_vertex_count(Mesh* instance, const int count);
 		EXPORT void mesh_set_triangle_count(Mesh* instance, const int count);
+		EXPORT void mesh_set_triangles(Mesh* instance, const int count, const Triangle* triangles);
 		EXPORT void mesh_add_material(Mesh* instance, Material* material);
 		EXPORT void mesh_add_weight_collection(Mesh* instance, WeightCollection* collection);
 		EXPORT void mesh_copy_weight(Mesh* instance, const int templateIndex, const int newIndex);
@@ -199,8 +216,6 @@ namespace General
 		EXPORT Node* create_node(const char* name);
 		EXPORT void node_add_child(Node* instance, Node* child);
 		EXPORT void destroy_node(Node* instance);
-
-		struct Animation;
 
 		struct Model
 		{

@@ -17,7 +17,7 @@ namespace General
 			};
 		};
 
-		EXPORT void scale_animation_curve_frame_data(AnimationCurveFrameData* data, const float scale);
+		EXPORT void scale_animation_curve_frame_data(AnimationCurveFrameData* data, const float scaling);
 
 		struct AnimationCurveFrame
 		{

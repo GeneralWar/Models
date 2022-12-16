@@ -6,9 +6,9 @@ namespace General
 {
 	namespace Models
 	{
-		void scale_animation_curve_frame_data(AnimationCurveFrameData* data, const float scale)
+		void scale_animation_curve_frame_data(AnimationCurveFrameData* data, const float scaling)
 		{
-			__m128 result = _mm_mul_ps(_mm_load_ps(data->values), _mm_load1_ps(&scale));
+			__m128 result = _mm_mul_ps(_mm_load_ps(data->values), _mm_load1_ps(&scaling));
 			memcpy(data->values, &result, sizeof(float) * 4);
 		}
 

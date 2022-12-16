@@ -48,6 +48,21 @@ namespace General
 			return transform;
 		}
 
+		Matrix matrix_from_ai(const aiMatrix4x4& matrix)
+		{
+			Matrix m = { };
+			const float* sourceValues = &matrix.a1;
+			float* targetValues = m.values;
+			for (int i = 0; i < 4; ++i)
+			{
+				for (int j = 0; j < 4; ++j)
+				{
+					*(targetValues + i * 4 + j) = static_cast<float>(*(sourceValues + i + j * 4));
+				}
+			}
+			return m;
+		}
+
 		Node* create_node_from_ai(const aiNode* assimpNode)
 		{
 			aiVector3D translation, rotation, scaling;
@@ -69,7 +84,7 @@ namespace General
 			Assimp::Importer importer;
 			importer.SetPropertyBool(AI_CONFIG_FBX_CONVERT_TO_M, true);
 			importer.SetPropertyBool(AI_CONFIG_IMPORT_FBX_PRESERVE_PIVOTS, false);
-			const aiScene* assimpScene = importer.ReadFile(this->GetFilename(), aiProcess_MakeLeftHanded | aiProcess_Triangulate | aiProcess_LimitBoneWeights | aiProcess_PopulateArmatureData | aiProcess_GlobalScale);
+			const aiScene* assimpScene = importer.ReadFile(this->GetFilename(), aiProcess_MakeLeftHanded | aiProcess_LimitBoneWeights | aiProcess_PopulateArmatureData | aiProcess_GlobalScale);
 
 			this->checkNode(assimpScene, assimpScene->mRootNode, model->root = create_node_from_ai(assimpScene->mRootNode));
 
@@ -126,14 +141,34 @@ namespace General
 
 			const aiFace* assimpFace = assimpMesh->mFaces;
 			const uint32_t faceCount = assimpMesh->mNumFaces;
-			mesh_set_triangle_count(mesh, static_cast<int>(faceCount));
-			Triangle* triangle = mesh->triangles;
-			for (uint32_t faceIndex = 0; faceIndex < faceCount; ++faceIndex, ++assimpFace, ++triangle)
+			std::vector<Triangle> triangles;
+			triangles.reserve(faceCount * 2);
+			Triangle triangle;
+			for (uint32_t faceIndex = 0; faceIndex < faceCount; ++faceIndex, ++assimpFace)
 			{
-				triangle->index0 = static_cast<int>(assimpFace->mIndices[0]);
-				triangle->index1 = static_cast<int>(assimpFace->mIndices[1]);
-				triangle->index2 = static_cast<int>(assimpFace->mIndices[2]);
+				if (3u == assimpFace->mNumIndices)
+				{
+					triangle.index0 = static_cast<int>(assimpFace->mIndices[0]);
+					triangle.index1 = static_cast<int>(assimpFace->mIndices[1]);
+					triangle.index2 = static_cast<int>(assimpFace->mIndices[2]); 
+					triangles.push_back(triangle);
+				}
+				else if (assimpFace->mNumIndices > 3u)
+				{
+					triangle.index0 = static_cast<int>(assimpFace->mIndices[0]);
+					for (unsigned int i = 2; i < assimpFace->mNumIndices; ++i)
+					{
+						triangle.index1 = static_cast<int>(assimpFace->mIndices[i - 1]);
+						triangle.index2 = static_cast<int>(assimpFace->mIndices[i]);
+						triangles.push_back(triangle);
+					}
+				}
+				else
+				{
+					TRACE_WARN("Should handle this condition, face index count is %u", assimpFace->mNumIndices);
+				}
 			}
+			mesh_set_triangles(mesh, static_cast<int>(triangles.size()), triangles.data());
 
 			const uint32_t& uvSetCount = assimpMesh->GetNumUVChannels();
 			for (uint32_t uvSetIndex = 0; uvSetIndex < uvSetCount && uvSetIndex < 4; ++uvSetIndex)
@@ -273,7 +308,7 @@ namespace General
 				return;
 			}
 
-			WeightCollection* weightCollection = create_weight_collection(boneFinder->second, transform_from_ai(offsetMatrix), static_cast<int>(weightCount));
+			WeightCollection* weightCollection = create_weight_collection(boneFinder->second, matrix_from_ai(offsetMatrix), static_cast<int>(weightCount));
 			WeightData* weight = weightCollection->weights;
 			const aiVertexWeight* assimpWeight = weights;
 			for (uint32_t weightIndex = 0; weightIndex < weightCount; ++weightIndex, ++weight, ++assimpWeight)

@@ -5,12 +5,12 @@ namespace General
 {
 	namespace Models
 	{
-		Vector3 vector3_scale(const Vector3 v, const float scale)
+		Vector3 vector3_scale(const Vector3 v, const float scaling)
 		{
 			Vector3 r = { };
-			r.x = v.x * scale;
-			r.y = v.y * scale;
-			r.z = v.z * scale;
+			r.x = v.x * scaling;
+			r.y = v.y * scaling;
+			r.z = v.z * scaling;
 			return r;
 		}
 
@@ -49,7 +49,7 @@ namespace General
 			free(set);
 		}
 
-		WeightCollection* create_weight_collection(Node* bone, Transform boneTransform, const int weightCount)
+		WeightCollection* create_weight_collection(Node* bone, Matrix boneTransform, const int weightCount)
 		{
 			WeightCollection* instance = g_alloc_struct<WeightCollection>();
 			instance->bone = bone;
@@ -78,7 +78,6 @@ namespace General
 
 			g_resize_array(&instance->weights, &instance->weightCount, count + 1);
 			memcpy(instance->weights + count, instance->weights + index, sizeof(WeightData));
-			WeightData data = instance->weights[index];
 			(instance->weights + count)->index = newIndex;
 		}
 
@@ -104,6 +103,12 @@ namespace General
 		void mesh_set_triangle_count(Mesh* instance, const int count)
 		{
 			g_resize_array(&instance->triangles, &instance->triangleCount, count);
+		}
+		
+		void mesh_set_triangles(Mesh* instance, const int count, const Triangle* triangles)
+		{
+			mesh_set_triangle_count(instance, count);
+			memcpy(instance->triangles, triangles, sizeof(Triangle) * count);
 		}
 		
 		void mesh_add_material(Mesh* instance, Material* material)

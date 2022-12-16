@@ -9,6 +9,7 @@ namespace fbxsdk
 	class FbxScene;
 	class FbxNode;
 	class FbxMesh;
+	class FbxPose;
 
 	class FbxLayerElementUV;
 	typedef FbxLayerElementUV FbxGeometryElementUV;
@@ -26,6 +27,11 @@ namespace General
 	{
 		class FbxModelImporter : public Importer
 		{
+		public:
+			struct Matrix
+			{
+				double values[16];
+			};
 		private:
 			FbxManager* mManager;
 			FbxImporter* mImporter;
@@ -37,7 +43,9 @@ namespace General
 			std::unordered_map<Mesh*, FbxMesh*> mMesh2FbxMap;
 			std::unordered_map<FbxNode*, Node*> mFbx2NodeMap;
 
-			FbxAnimEvaluator* mAnimationEvaluator;
+			FbxPose* mPose;
+			std::unordered_map<FbxNode*, Matrix> mFbxPoseMap;
+
 			std::vector<FbxAnimStack*> mAnimationStacks;
 			std::vector<FbxAnimLayer*> mAnimationLayers;
 			std::vector<Animation*> mAnimations;
@@ -64,14 +72,15 @@ namespace General
 			const char* checkTexture(Material* material, FbxTexture* fbxTexture);
 
 			void checkAnimations(FbxScene* scene);
-			void checkNodeAnimationFrames(FbxNode* fbxNode, Node* node);
+			void checkAnimationNodeFrames(FbxNode* fbxNode, Node* node);
 
 			void checkSkinWeights();
 
 			void postProcess();
-			void checkVertices(Mesh* mesh, const UVSet* uvSet, std::vector<Triangle>& triangles, std::vector<Vertex>& vertices);
-			void checkVertices(Mesh* mesh, const std::vector<Normal> normals, std::vector<Triangle>& triangles, std::vector<Vertex>& vertices);
-			void checkVertices(Mesh* mesh, const UVSet* uvSet, const std::vector<Normal> normals, std::vector<Triangle>& triangles, std::vector<Vertex>& vertices);
+			void checkVerticesWithPose(Mesh* mesh, std::vector<Vertex>& vertices);
+			void checkVerticesWithUVAndNormals(Mesh* mesh, const UVSet* uvSet, std::vector<Triangle>& triangles, std::vector<Vertex>& vertices);
+			void checkVerticesWithUVAndNormals(Mesh* mesh, const std::vector<Normal> normals, std::vector<Triangle>& triangles, std::vector<Vertex>& vertices);
+			void checkVerticesWithUVAndNormals(Mesh* mesh, const UVSet* uvSet, const std::vector<Normal> normals, std::vector<Triangle>& triangles, std::vector<Vertex>& vertices);
 		};
 	}
 }
