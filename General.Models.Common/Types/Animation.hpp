@@ -7,6 +7,7 @@ namespace General
 {
 	namespace Models
 	{
+#pragma pack(push, 4)
 		struct AnimationCurveFrameData
 		{
 			union
@@ -64,6 +65,7 @@ namespace General
 
 		EXPORT Animation* create_animation(const char* name);
 		EXPORT void destroy_animation(Animation* instance);
+#pragma pack(pop)
 	}
 }
 

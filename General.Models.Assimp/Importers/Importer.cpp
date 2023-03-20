@@ -126,6 +126,20 @@ namespace General
 			this->registerNode(node);
 		}
 
+		static std::vector<aiTextureType> check_material_texture_type(const aiMaterial* aiMaterial)
+		{
+			std::vector<aiTextureType> types;
+			for (int i = aiTextureType_NONE; i <= AI_TEXTURE_TYPE_MAX; ++i)
+			{
+				const uint32_t count = aiMaterial->GetTextureCount(static_cast<aiTextureType>(i));
+				if (count > 0)
+				{
+					types.push_back(static_cast<aiTextureType>(i));
+				}
+			}
+			return types;
+		}
+
 		void AssimpModelImporter::checkMesh(const aiScene* assimpScene, const aiMesh* assimpMesh, Mesh* mesh)
 		{
 			const uint32_t vertexCount = assimpMesh->mNumVertices;
@@ -189,7 +203,8 @@ namespace General
 				{
 					Material* material = create_material(assimpMaterial->GetName().C_Str());
 					const uint32_t diffuseCount = assimpMaterial->GetTextureCount(aiTextureType_DIFFUSE);
-					assert(diffuseCount <= 1 && "should optimize material collection");
+					const auto types = check_material_texture_type(assimpMaterial);
+					//assert(diffuseCount <= 1 && "should optimize material collection");
 					for (uint32_t textureIndex = 0; textureIndex < diffuseCount; ++textureIndex)
 					{
 						aiString assimpPath;
