@@ -242,8 +242,11 @@ namespace General
 		void AssimpModelImporter::checkAnimation(const aiScene* assimpScene, const aiAnimation* assimpAnimation)
 		{
 			CHECK(assimpAnimation, );
+#if DEBUG
+			assert(assimpAnimation->mTicksPerSecond == floor(assimpAnimation->mTicksPerSecond));
+#endif
 
-			Animation* animation = create_animation(assimpAnimation->mName.C_Str());
+			Animation* animation = create_animation(assimpAnimation->mName.C_Str(), static_cast<float>(assimpAnimation->mTicksPerSecond));
 			AnimationCurve* animationCurve = const_cast<AnimationCurve*>(animation->curve);			
 			for (uint32_t nodeIndex = 0; nodeIndex < assimpAnimation->mNumChannels; ++nodeIndex)
 			{

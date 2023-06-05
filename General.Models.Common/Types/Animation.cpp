@@ -56,11 +56,12 @@ namespace General
 			free(instance);
 		}
 
-		Animation* create_animation(const char* name)
+		Animation* create_animation(const char* name, const float fps)
 		{
 			Animation* instance = g_alloc_struct<Animation>();
 			instance->name = g_copy_string(name);
 			*const_cast<AnimationCurve**>(&instance->curve) = create_animation_curve();
+			*const_cast<float*>(&instance->fps) = fps;
 			return instance;
 		}
 

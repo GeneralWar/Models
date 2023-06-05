@@ -60,10 +60,11 @@ namespace General
 		struct Animation
 		{
 			const char* name;
+			const float fps;
 			const AnimationCurve* const curve;
 		};
 
-		EXPORT Animation* create_animation(const char* name);
+		EXPORT Animation* create_animation(const char* name, const float fps);
 		EXPORT void destroy_animation(Animation* instance);
 #pragma pack(pop)
 	}
