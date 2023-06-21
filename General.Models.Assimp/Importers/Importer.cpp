@@ -85,6 +85,10 @@ namespace General
 			importer.SetPropertyBool(AI_CONFIG_FBX_CONVERT_TO_M, true);
 			importer.SetPropertyBool(AI_CONFIG_IMPORT_FBX_PRESERVE_PIVOTS, false);
 			const aiScene* assimpScene = importer.ReadFile(this->GetFilename(), aiProcess_MakeLeftHanded | aiProcess_LimitBoneWeights | aiProcess_PopulateArmatureData | aiProcess_GlobalScale);
+			if (!assimpScene)
+			{
+				return false;
+			}
 
 			this->checkNode(assimpScene, assimpScene->mRootNode, model->root = create_node_from_ai(assimpScene->mRootNode));
 
